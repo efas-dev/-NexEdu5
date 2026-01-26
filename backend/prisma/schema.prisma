@@ -1,0 +1,87 @@
+// Schema do banco de dados para o sistema NexEdu
+// Este arquivo define a estrutura do banco de dados usando Prisma ORM
+// Saiba mais em: https://pris.ly/d/prisma-schema
+
+// Para acelerar suas queries ou escalar facilmente com funções serverless/edge:
+// Experimente o Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Modelo que representa um usuário do sistema NexEdu
+/// Pode ser um professor ou aluno com diferentes permissões
+model User {
+  /// Identificador único do usuário (chave primária)
+  /// Gerado automaticamente de forma incremental
+  id Int @id @default(autoincrement())
+
+  /// Nome completo do usuário
+  /// Campo obrigatório
+  name String
+
+  /// Login único do usuário
+  /// Campo obrigatório e deve ser único no sistema
+  login String @unique
+
+  /// Senha criptografada do usuário
+  /// Campo obrigatório, armazenada com hash bcrypt
+  password String
+
+  /// Papel do usuário no sistema
+  /// Valores possíveis: PROFESSOR ou ALUNO
+  role Role
+
+  /// Data de criação do registro
+  createdAt DateTime @default(now())
+
+  /// Data da última atualização
+  updatedAt DateTime @updatedAt
+
+  /// Posts criados pelo usuário (se for professor)
+  posts Post[]
+}
+
+/// Enum que define os papéis possíveis de usuário
+enum Role {
+  PROFESSOR
+  ALUNO
+}
+
+/// Modelo que representa um post educacional no sistema NexEdu
+/// Contém informações sobre título, conteúdo e autor das postagens
+model Post {
+  /// Identificador único do post (chave primária)
+  /// Gerado automaticamente de forma incremental
+  id Int @id @default(autoincrement())
+
+  /// Título do post educacional
+  /// Campo obrigatório que representa o assunto principal
+  Title String
+
+  /// Conteúdo completo do post
+  /// Campo obrigatório que contém o material educacional
+  Content String
+
+  /// Nome do autor que criou o post
+  /// Campo obrigatório para identificar o criador do conteúdo
+  Author String
+
+  /// ID do usuário autor (chave estrangeira)
+  /// Relaciona o post ao usuário que o criou
+  authorId Int?
+
+  /// Relacionamento com o usuário autor
+  author User? @relation(fields: [authorId], references: [id])
+
+  /// Data de criação do post
+  createdAt DateTime @default(now())
+
+  /// Data da última atualização
+  updatedAt DateTime @default(now()) @updatedAt
+}

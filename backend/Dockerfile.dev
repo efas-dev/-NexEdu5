@@ -1,0 +1,23 @@
+# Dockerfile para desenvolvimento
+FROM node:18-alpine
+
+# Define o diretório de trabalho
+WORKDIR /app
+
+# Copia os arquivos de dependências
+COPY package*.json ./
+
+# Instala todas as dependências (incluindo dev)
+RUN npm ci
+
+# Copia o restante do código
+COPY . .
+
+# Gera o cliente Prisma
+RUN npx prisma generate
+
+# Expõe a porta
+EXPOSE 3000
+
+# Comando para desenvolvimento com nodemon
+CMD ["npm", "run", "dev"]

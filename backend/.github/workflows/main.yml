@@ -1,0 +1,727 @@
+name: Docker Build and Push
+
+on:
+  push:
+    branches: [main, develop]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write # Necessário para criar releases
+
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: nexedu-api
+
+jobs:
+  # Testes com Docker
+  test-docker:
+    name: Test with Docker
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build test image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          tags: nexedu-test:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Create test network
+        run: docker network create nexedu-test-network
+
+      - name: Run PostgreSQL for tests
+        run: |
+          docker run -d \
+            --name postgres-test \
+            --network nexedu-test-network \
+            -e POSTGRES_USER=nexedu_test \
+            -e POSTGRES_PASSWORD=test123 \
+            -e POSTGRES_DB=nexedu_test \
+            -p 5432:5432 \
+            postgres:15-alpine
+
+      - name: Wait for PostgreSQL
+        run: |
+          timeout 30s bash -c 'until docker exec postgres-test pg_isready -U nexedu_test; do sleep 1; done'
+
+      - name: Run application tests
+        run: |
+          docker run --rm \
+            --network nexedu-test-network \
+            -e DATABASE_URL="postgresql://nexedu_test:test123@postgres-test:5432/nexedu_test" \
+            -e NODE_ENV=test \
+            nexedu-test:latest \
+            sh -c "npx prisma migrate deploy && npm test"
+
+      - name: Test application startup
+        run: |
+          docker run -d \
+            --name nexedu-app-test \
+            --network nexedu-test-network \
+            -e DATABASE_URL="postgresql://nexedu_test:test123@postgres-test:5432/nexedu_test" \
+            -p 3000:3000 \
+            nexedu-test:latest
+
+          # Wait for app to start
+          sleep 10
+
+          # Test if app is responding
+          curl -f http://localhost:3000 || exit 1
+
+          # Cleanup
+          docker stop nexedu-app-test postgres-test
+          docker rm nexedu-app-test postgres-test
+          docker network rm nexedu-test-network
+
+  # Build e Push da imagem Docker
+  build-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: test-docker
+    if: github.event_name != 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Generate deployment artifact
+        run: |
+          mkdir -p deployment
+          cat > deployment/docker-compose.prod.yml << EOF
+          version: '3.8'
+          services:
+            nexedu-api:
+              image: ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+              ports:
+                - "3000:3000"
+              environment:
+                - NODE_ENV=production
+                - DATABASE_URL=\${DATABASE_URL}
+              depends_on:
+                - postgres
+              restart: unless-stopped
+
+            postgres:
+              image: postgres:15-alpine
+              environment:
+                - POSTGRES_USER=\${POSTGRES_USER:-nexedu}
+                - POSTGRES_PASSWORD=\${POSTGRES_PASSWORD}
+                - POSTGRES_DB=\${POSTGRES_DB:-nexedu_db}
+              volumes:
+                - postgres_data:/var/lib/postgresql/data
+              restart: unless-stopped
+
+          volumes:
+            postgres_data:
+          EOF
+
+          cat > deployment/deploy.sh << 'EOF'
+          #!/bin/bash
+          echo "🚀 Deploying NexEdu API..."
+
+          # Pull latest images
+          docker-compose -f docker-compose.prod.yml pull
+
+          # Stop current containers
+          docker-compose -f docker-compose.prod.yml down
+
+          # Start new containers
+          docker-compose -f docker-compose.prod.yml up -d
+
+          # Run migrations
+          docker-compose -f docker-compose.prod.yml exec -T nexedu-api npx prisma migrate deploy
+
+          echo "✅ Deployment completed!"
+          EOF
+
+          chmod +x deployment/deploy.sh
+
+      - name: Upload deployment artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-${{ github.sha }}
+          path: deployment/
+          retention-days: 30
+
+      - name: Comment on commit with image info
+        if: github.ref == 'refs/heads/main'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const message = `🐳 **Docker Image Built Successfully!**
+
+            **Image**: \`${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest\`
+            **Platforms**: linux/amd64, linux/arm64
+            **Commit**: ${context.sha.substring(0, 7)}
+            **Branch**: ${context.ref.replace('refs/heads/', '')}
+
+            **Quick Deploy:**
+            \`\`\`bash
+            # Download deployment files
+            curl -O deployment.tar.gz
+
+            # Or run directly
+            docker run -d \\
+              --name nexedu-api \\
+              -p 3000:3000 \\
+              -e DATABASE_URL="your_database_url" \\
+              ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+            \`\`\`
+
+            **Deployment artifacts available for 30 days** 📦`;
+
+            github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: message
+            })
+
+  # Semantic Release - automatiza tags e releases baseado em conventional commits
+  semantic-release:
+    name: Semantic Release
+    runs-on: ubuntu-latest
+    needs: build-push
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install semantic-release
+        run: |
+          npm install -g semantic-release @semantic-release/changelog @semantic-release/git @semantic-release/github
+
+      - name: Get latest tag
+        id: latest_tag
+        run: |
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "latest_tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
+
+      - name: Analyze commits and determine version
+        id: version
+        run: |
+          # Get commits since last tag
+          LATEST_TAG=${{ steps.latest_tag.outputs.latest_tag }}
+          if [ "$LATEST_TAG" = "v0.0.0" ]; then
+            COMMITS=$(git log --pretty=format:"%s" --reverse)
+          else
+            COMMITS=$(git log ${LATEST_TAG}..HEAD --pretty=format:"%s" --reverse)
+          fi
+
+          VERSION=${LATEST_TAG#v}
+          IFS='.' read -ra PARTS <<< "$VERSION"
+          MAJOR=${PARTS[0]:-0}
+          MINOR=${PARTS[1]:-0} 
+          PATCH=${PARTS[2]:-0}
+
+          HAS_BREAKING=false
+          HAS_FEAT=false
+          HAS_FIX=false
+
+          echo "Analisando commits:"
+          while IFS= read -r commit; do
+            echo "  - $commit"
+            if [[ $commit =~ ^[a-zA-Z]+(\(.+\))?!:|BREAKING[[:space:]]CHANGE ]]; then
+              HAS_BREAKING=true
+            elif [[ $commit =~ ^feat(\(.+\))?:|^feature(\(.+\))?: ]]; then
+              HAS_FEAT=true
+            elif [[ $commit =~ ^fix(\(.+\))?:|^bugfix(\(.+\))?: ]]; then
+              HAS_FIX=true
+            fi
+          done <<< "$COMMITS"
+
+          if [ "$HAS_BREAKING" = true ]; then
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+            TYPE="major"
+            RELEASE_TYPE="💥 BREAKING CHANGE"
+          elif [ "$HAS_FEAT" = true ]; then
+            MINOR=$((MINOR + 1))
+            PATCH=0
+            TYPE="minor"
+            RELEASE_TYPE="✨ New Feature"
+          elif [ "$HAS_FIX" = true ]; then
+            PATCH=$((PATCH + 1))
+            TYPE="patch"
+            RELEASE_TYPE="🐛 Bug Fix"
+          else
+            echo "Nenhuma mudança significativa encontrada. Pulando release."
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "should_release=true" >> $GITHUB_OUTPUT
+          echo "new_version=${NEW_VERSION}" >> $GITHUB_OUTPUT
+          echo "version_type=${TYPE}" >> $GITHUB_OUTPUT
+          echo "release_type=${RELEASE_TYPE}" >> $GITHUB_OUTPUT
+          echo ""
+          echo "🎯 Nova versão será: ${NEW_VERSION} (${TYPE})"
+
+      - name: Generate changelog
+        if: steps.version.outputs.should_release == 'true'
+        id: changelog
+        run: |
+          NEW_VERSION="${{ steps.version.outputs.new_version }}"
+          LATEST_TAG="${{ steps.latest_tag.outputs.latest_tag }}"
+          RELEASE_TYPE="${{ steps.version.outputs.release_type }}"
+          
+          if [ "$LATEST_TAG" = "v0.0.0" ]; then
+            COMMITS=$(git log --pretty=format:"- %s (%h)" --reverse)
+          else
+            COMMITS=$(git log ${LATEST_TAG}..HEAD --pretty=format:"- %s (%h)" --reverse)
+          fi
+          
+          # Create changelog content
+          echo "## ${RELEASE_TYPE} - ${NEW_VERSION}" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "### 📋 Mudanças" >> CHANGELOG.md
+          echo "$COMMITS" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "### 🐳 Docker Image" >> CHANGELOG.md
+          echo "\`\`\`bash" >> CHANGELOG.md
+          echo "docker pull ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${NEW_VERSION#v}" >> CHANGELOG.md
+          echo "docker pull ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest" >> CHANGELOG.md
+          echo "\`\`\`" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "### 📦 Deploy Rápido" >> CHANGELOG.md
+          echo "\`\`\`bash" >> CHANGELOG.md
+          echo "# Com Docker Compose" >> CHANGELOG.md
+          echo "curl -LO https://github.com/${{ github.repository }}/releases/download/${NEW_VERSION}/docker-compose.prod.yml" >> CHANGELOG.md
+          echo "docker-compose -f docker-compose.prod.yml up -d" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "# Ou executar diretamente" >> CHANGELOG.md
+          echo "docker run -d \\" >> CHANGELOG.md
+          echo "  --name nexedu-api \\" >> CHANGELOG.md
+          echo "  -p 3000:3000 \\" >> CHANGELOG.md
+          echo "  -e DATABASE_URL=\"postgresql://user:pass@localhost:5432/db\" \\" >> CHANGELOG.md
+          echo "  ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${NEW_VERSION#v}" >> CHANGELOG.md
+          echo "\`\`\`" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "### 📖 Documentação" >> CHANGELOG.md
+          echo "- [README](https://github.com/${{ github.repository }}/blob/${NEW_VERSION}/README.md)" >> CHANGELOG.md
+          echo "- [API Endpoints](https://github.com/${{ github.repository }}/blob/${NEW_VERSION}/test-requests.http)" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "---" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "### 🔄 Conventional Commits Utilizados:" >> CHANGELOG.md
+          echo "- \`feat:\` → Nova funcionalidade (minor)" >> CHANGELOG.md
+          echo "- \`fix:\` → Correção de bug (patch)" >> CHANGELOG.md
+          echo "- \`feat!:\` ou \`BREAKING CHANGE\` → Mudança breaking (major)" >> CHANGELOG.md
+          echo "- \`docs:\`, \`style:\`, \`refactor:\`, \`test:\` → Não geram release" >> CHANGELOG.md
+
+      - name: Create deployment artifacts
+        if: steps.version.outputs.should_release == 'true'
+        run: |
+          NEW_VERSION=${{ steps.version.outputs.new_version }}
+          VERSION_NUMBER=${NEW_VERSION#v}
+
+          mkdir -p release-assets
+
+          # Docker Compose para produção
+          cat > release-assets/docker-compose.prod.yml << EOF
+          version: '3.8'
+          services:
+            nexedu-api:
+              image: ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${VERSION_NUMBER}
+              ports:
+                - "3000:3000"
+              environment:
+                - NODE_ENV=production
+                - DATABASE_URL=\${DATABASE_URL}
+              depends_on:
+                - postgres
+              restart: unless-stopped
+              healthcheck:
+                test: ["CMD", "curl", "-f", "http://localhost:3000"]
+                interval: 30s
+                timeout: 10s
+                retries: 3
+
+            postgres:
+              image: postgres:15-alpine
+              environment:
+                - POSTGRES_USER=\${POSTGRES_USER:-nexedu}
+                - POSTGRES_PASSWORD=\${POSTGRES_PASSWORD}
+                - POSTGRES_DB=\${POSTGRES_DB:-nexedu_db}
+              volumes:
+                - postgres_data:/var/lib/postgresql/data
+              restart: unless-stopped
+              healthcheck:
+                test: ["CMD-SHELL", "pg_isready -U \${POSTGRES_USER:-nexedu}"]
+                interval: 10s
+                timeout: 5s
+                retries: 5
+
+          volumes:
+            postgres_data:
+          EOF
+
+          # Script de deploy
+          cat > release-assets/deploy.sh << EOF
+          #!/bin/bash
+          set -e
+
+          echo "🚀 NexEdu API - Deploy ${NEW_VERSION}"
+          echo "=================================================="
+
+          # Verifica se Docker está instalado
+          if ! command -v docker &> /dev/null; then
+              echo "❌ Docker não encontrado. Instale o Docker primeiro."
+              exit 1
+          fi
+
+          # Verifica se docker-compose está instalado
+          if ! command -v docker-compose &> /dev/null; then
+              echo "❌ Docker Compose não encontrado. Instale o Docker Compose primeiro."
+              exit 1
+          fi
+
+          # Verifica arquivo .env
+          if [ ! -f .env ]; then
+              echo "⚠️  Arquivo .env não encontrado. Criando template..."
+              cat > .env << 'ENVEOF'
+          # Configuração do Banco de Dados
+          DATABASE_URL=postgresql://nexedu:senha123@postgres:5432/nexedu_db
+          POSTGRES_USER=nexedu
+          POSTGRES_PASSWORD=senha123
+          POSTGRES_DB=nexedu_db
+
+          # Configuração da API
+          PORT=3000
+          NODE_ENV=production
+          ENVEOF
+              echo "📝 Configure o arquivo .env antes de continuar"
+              exit 1
+          fi
+
+          echo "📦 Fazendo pull das imagens..."
+          docker-compose -f docker-compose.prod.yml pull
+
+          echo "🔄 Parando containers antigos..."
+          docker-compose -f docker-compose.prod.yml down
+
+          echo "🚀 Iniciando novos containers..."
+          docker-compose -f docker-compose.prod.yml up -d
+
+          echo "⏳ Aguardando containers ficarem prontos..."
+          sleep 15
+
+          echo "🔄 Executando migrações..."
+          docker-compose -f docker-compose.prod.yml exec -T nexedu-api npx prisma migrate deploy
+
+          echo "✅ Deploy concluído com sucesso!"
+          echo "🌐 API disponível em: http://localhost:3000"
+
+          # Testa se a API está respondendo
+          if curl -f http://localhost:3000 >/dev/null 2>&1; then
+              echo "🎉 API está respondendo corretamente!"
+          else
+              echo "⚠️  API não está respondendo. Verifique os logs:"
+              echo "   docker-compose -f docker-compose.prod.yml logs nexedu-api"
+          fi
+          EOF
+
+          chmod +x release-assets/deploy.sh
+
+          # Arquivo de exemplo .env
+          cat > release-assets/.env.example << 'EOF'
+          # Configuração do Banco de Dados
+          DATABASE_URL=postgresql://nexedu:senha123@postgres:5432/nexedu_db
+          POSTGRES_USER=nexedu
+          POSTGRES_PASSWORD=senha123
+          POSTGRES_DB=nexedu_db
+
+          # Configuração da API
+          PORT=3000
+          NODE_ENV=production
+          EOF
+
+      - name: Create tag and release
+        if: steps.version.outputs.should_release == 'true'
+        run: |
+          NEW_VERSION=${{ steps.version.outputs.new_version }}
+          RELEASE_TYPE=${{ steps.version.outputs.release_type }}
+
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Create tag
+          git tag -a ${NEW_VERSION} -m "${RELEASE_TYPE} - ${NEW_VERSION}
+
+          Generated automatically by Semantic Release
+          Commit: ${{ github.sha }}"
+
+          # Push tag
+          git push origin ${NEW_VERSION}
+
+          echo "✅ Created and pushed tag: ${NEW_VERSION}"
+
+      - name: Create GitHub Release
+        if: steps.version.outputs.should_release == 'true'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.new_version }}
+          name: ${{ steps.version.outputs.release_type }} ${{ steps.version.outputs.new_version }}
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.new_version, '-') }}
+          files: |
+            release-assets/docker-compose.prod.yml
+            release-assets/deploy.sh
+            release-assets/.env.example
+
+  # Job de Release manual - só executa quando há tags criadas manualmente
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build-push
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Busca todo o histórico para changelog
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          VERSION=${TAG#v}
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "is_prerelease=$([[ $TAG =~ -[a-z] ]] && echo true || echo false)" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          if [ $(git tag --list | wc -l) -le 1 ]; then
+            # Primeiro release - pega todos os commits
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --reverse)
+          else
+            # Releases subsequentes - pega commits desde a última tag
+            PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || git rev-list --max-parents=0 HEAD)
+            CHANGELOG=$(git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %s (%h)" --reverse)
+          fi
+
+          # Salva o changelog em arquivo para usar no release
+          cat > CHANGELOG.md << EOF
+          ## 🚀 O que há de novo em ${{ steps.version.outputs.tag }}
+
+          ### 📋 Mudanças
+          $CHANGELOG
+
+          ### 🐳 Docker Image
+          \`\`\`bash
+          docker pull ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+          docker pull ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+          \`\`\`
+
+          ### 📦 Deploy Rápido
+          \`\`\`bash
+          # Com Docker Compose
+          curl -LO https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/docker-compose.prod.yml
+          docker-compose -f docker-compose.prod.yml up -d
+
+          # Ou executar diretamente
+          docker run -d \\
+            --name nexedu-api \\
+            -p 3000:3000 \\
+            -e DATABASE_URL="postgresql://user:pass@localhost:5432/db" \\
+            ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+          \`\`\`
+
+          ### 📖 Documentação
+          - [README](https://github.com/${{ github.repository }}/blob/${{ steps.version.outputs.tag }}/README.md)
+          - [API Endpoints](https://github.com/${{ github.repository }}/blob/${{ steps.version.outputs.tag }}/test-requests.http)
+          EOF
+
+      - name: Create deployment artifacts
+        run: |
+          mkdir -p release-assets
+
+          # Docker Compose para produção
+          cat > release-assets/docker-compose.prod.yml << 'EOF'
+          version: '3.8'
+          services:
+            nexedu-api:
+              image: ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+              ports:
+                - "3000:3000"
+              environment:
+                - NODE_ENV=production
+                - DATABASE_URL=${DATABASE_URL}
+              depends_on:
+                - postgres
+              restart: unless-stopped
+              healthcheck:
+                test: ["CMD", "curl", "-f", "http://localhost:3000"]
+                interval: 30s
+                timeout: 10s
+                retries: 3
+
+            postgres:
+              image: postgres:15-alpine
+              environment:
+                - POSTGRES_USER=${POSTGRES_USER:-nexedu}
+                - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+                - POSTGRES_DB=${POSTGRES_DB:-nexedu_db}
+              volumes:
+                - postgres_data:/var/lib/postgresql/data
+              restart: unless-stopped
+              healthcheck:
+                test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nexedu}"]
+                interval: 10s
+                timeout: 5s
+                retries: 5
+
+          volumes:
+            postgres_data:
+          EOF
+
+          # Script de deploy
+          cat > release-assets/deploy.sh << 'EOF'
+          #!/bin/bash
+          set -e
+
+          echo "🚀 NexEdu API - Deploy ${{ steps.version.outputs.tag }}"
+          echo "=================================================="
+
+          # Verifica se Docker está instalado
+          if ! command -v docker &> /dev/null; then
+              echo "❌ Docker não encontrado. Instale o Docker primeiro."
+              exit 1
+          fi
+
+          # Verifica se docker-compose está instalado
+          if ! command -v docker-compose &> /dev/null; then
+              echo "❌ Docker Compose não encontrado. Instale o Docker Compose primeiro."
+              exit 1
+          fi
+
+          # Verifica arquivo .env
+          if [ ! -f .env ]; then
+              echo "⚠️  Arquivo .env não encontrado. Criando template..."
+              cat > .env << 'ENVEOF'
+          # Configuração do Banco de Dados
+          DATABASE_URL=postgresql://nexedu:senha123@postgres:5432/nexedu_db
+          POSTGRES_USER=nexedu
+          POSTGRES_PASSWORD=senha123
+          POSTGRES_DB=nexedu_db
+
+          # Configuração da API
+          PORT=3000
+          NODE_ENV=production
+          ENVEOF
+              echo "📝 Configure o arquivo .env antes de continuar"
+              exit 1
+          fi
+
+          echo "📦 Fazendo pull das imagens..."
+          docker-compose -f docker-compose.prod.yml pull
+
+          echo "🔄 Parando containers antigos..."
+          docker-compose -f docker-compose.prod.yml down
+
+          echo "🚀 Iniciando novos containers..."
+          docker-compose -f docker-compose.prod.yml up -d
+
+          echo "⏳ Aguardando containers ficarem prontos..."
+          sleep 15
+
+          echo "🔄 Executando migrações..."
+          docker-compose -f docker-compose.prod.yml exec -T nexedu-api npx prisma migrate deploy
+
+          echo "✅ Deploy concluído com sucesso!"
+          echo "🌐 API disponível em: http://localhost:3000"
+
+          # Testa se a API está respondendo
+          if curl -f http://localhost:3000 >/dev/null 2>&1; then
+              echo "🎉 API está respondendo corretamente!"
+          else
+              echo "⚠️  API não está respondendo. Verifique os logs:"
+              echo "   docker-compose -f docker-compose.prod.yml logs nexedu-api"
+          fi
+          EOF
+
+          chmod +x release-assets/deploy.sh
+
+          # Arquivo de exemplo .env
+          cat > release-assets/.env.example << 'EOF'
+          # Configuração do Banco de Dados
+          DATABASE_URL=postgresql://nexedu:senha123@postgres:5432/nexedu_db
+          POSTGRES_USER=nexedu
+          POSTGRES_PASSWORD=senha123
+          POSTGRES_DB=nexedu_db
+
+          # Configuração da API
+          PORT=3000
+          NODE_ENV=production
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: 🚀 NexEdu API ${{ steps.version.outputs.tag }}
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: ${{ steps.version.outputs.is_prerelease }}
+          files: |
+            release-assets/docker-compose.prod.yml
+            release-assets/deploy.sh
+            release-assets/.env.example

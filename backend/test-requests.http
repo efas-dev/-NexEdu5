@@ -1,0 +1,489 @@
+###
+# NexEdu API - Arquivo de Testes Completo
+#
+# Este arquivo contém requisições HTTP para testar todos os endpoints da API NexEdu.
+# Use a extensão REST Client do VS Code para executar as requisições.
+#
+# Como usar:
+# 1. Instale a extensão REST Client no VS Code
+# 2. Inicie o servidor com: npm run dev ou docker-compose up
+# 3. Execute os logins (requisições 8 e 9) e copie os tokens retornados
+# 4. Cole os tokens nas variáveis @tokenProfessor e @tokenAluno abaixo
+# 5. Execute as requisições clicando em "Send Request"
+#
+# Sequência recomendada de testes:
+# 1. Teste básico da API (requisição 1)
+# 2. Registro de usuários (requisições 2-5) - se ainda não existirem
+# 3. Login (requisições 8 e 9) - copie os tokens retornados
+# 4. Cole os tokens nas variáveis abaixo
+# 5. CRUD de usuários (requisições 12-15) - apenas professores
+# 6. CRUD de posts (requisições 18-25) - criar/editar/deletar apenas professores
+# 7. Testes de autorização (requisições 26-37) - verificar bloqueios
+###
+
+@baseUrl = http://localhost:3000
+
+# Tokens JWT - Cole aqui os tokens obtidos nas requisições de login (8 e 9)
+# Substitua "SEU_TOKEN_AQUI" pelos tokens reais retornados pelo endpoint /auth/login
+@tokenProfessor = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwibG9naW4iOiJqb2FvLnByb2Zlc3NvciIsInJvbGUiOiJQUk9GRVNTT1IiLCJpYXQiOjE3NTk3MTQ3NDEsImV4cCI6MTc1OTgwMTE0MX0.atapP35D4_4Bbh0p4LSHAgCWWH_RxpHH7zxyVGXzWVc
+@tokenAluno = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwibG9naW4iOiJtYXJpYS5hbHVuYSIsInJvbGUiOiJBTFVOTyIsImlhdCI6MTc1OTcxNDc2MSwiZXhwIjoxNzU5ODAxMTYxfQ.N6eMS3U1qhjGN6uz-UI4akyHKeli3gsGJidx3cHoYZ8
+
+# ============================================================================
+# TESTE BÁSICO
+# ============================================================================
+
+### 1. TESTE BÁSICO DA API
+# Verifica se a API está funcionando corretamente
+GET {{baseUrl}}/
+
+###
+
+# ============================================================================
+# AUTENTICAÇÃO - REGISTRO DE USUÁRIOS
+# ============================================================================
+
+### 2. REGISTRAR PROFESSOR
+# Cria um novo usuário com role de PROFESSOR
+# Endpoint público - não requer autenticação
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Prof. João Silva",
+  "login": "joao.professor",
+  "password": "senha123",
+  "role": "PROFESSOR"
+}
+
+###
+
+### 3. REGISTRAR ALUNO
+# Cria um novo usuário com role de ALUNO
+# Endpoint público - não requer autenticação
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Maria Aluna",
+  "login": "maria.aluna",
+  "password": "senha123",
+  "role": "ALUNO"
+}
+
+###
+
+### 4. REGISTRAR SEGUNDO PROFESSOR
+# Para testes de gerenciamento de usuários
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Prof. Ana Costa",
+  "login": "ana.professor",
+  "password": "senha123",
+  "role": "PROFESSOR"
+}
+
+###
+
+### 5. REGISTRAR SEGUNDO ALUNO
+# Para testes de gerenciamento de usuários
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Pedro Aluno",
+  "login": "pedro.aluno",
+  "password": "senha123",
+  "role": "ALUNO"
+}
+
+###
+
+### 6. TESTE DE ERRO - Login duplicado
+# Deve retornar erro 409 (Conflict)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Outro Usuário",
+  "login": "joao.professor",
+  "password": "outrasenha",
+  "role": "ALUNO"
+}
+
+###
+
+### 7. TESTE DE ERRO - Role inválido
+# Deve retornar erro 400
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Usuário Teste",
+  "login": "teste.invalido",
+  "password": "senha123",
+  "role": "ADMIN"
+}
+
+###
+
+# ============================================================================
+# AUTENTICAÇÃO - LOGIN
+# ============================================================================
+
+### 8. LOGIN PROFESSOR
+# Retorna token JWT válido por 24h
+# IMPORTANTE: Copie o token retornado para usar nas próximas requisições!
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "login": "joao.professor",
+  "password": "senha123"
+}
+
+###
+
+### 9. LOGIN ALUNO
+# Retorna token JWT válido por 24h
+# IMPORTANTE: Copie o token retornado para usar nas requisições de aluno!
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "login": "maria.aluna",
+  "password": "senha123"
+}
+
+###
+
+### 10. TESTE DE ERRO - Login inválido
+# Deve retornar erro 401
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "login": "joao.professor",
+  "password": "senhaerrada"
+}
+
+###
+
+### 11. TESTE DE ERRO - Usuário inexistente
+# Deve retornar erro 401
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "login": "usuario.nao.existe",
+  "password": "senha123"
+}
+
+###
+
+# ============================================================================
+# CRUD DE USUÁRIOS (APENAS PROFESSORES)
+# ============================================================================
+
+### 12. LISTAR TODOS OS USUÁRIOS (Professor)
+# Requer autenticação + role PROFESSOR
+GET {{baseUrl}}/users
+Authorization: Bearer {{tokenProfessor}}
+
+###
+
+### 13. BUSCAR USUÁRIO POR ID (Professor)
+# Requer autenticação + role PROFESSOR
+# Substitua o ID conforme necessário
+GET {{baseUrl}}/users/1
+Authorization: Bearer {{tokenProfessor}}
+
+###
+
+### 14. ATUALIZAR USUÁRIO (Professor)
+# Requer autenticação + role PROFESSOR
+# Substitua o ID conforme necessário
+PUT {{baseUrl}}/users/2
+Authorization: Bearer {{tokenProfessor}}
+Content-Type: application/json
+
+{
+  "name": "Maria Aluna - Atualizada",
+  "role": "ALUNO"
+}
+
+###
+
+### 15. DELETAR USUÁRIO (Professor)
+# Requer autenticação + role PROFESSOR
+# Cuidado: operação irreversível
+# Substitua o ID conforme necessário
+DELETE {{baseUrl}}/users/4
+Authorization: Bearer {{tokenProfessor}}
+
+###
+
+### 16. TESTE DE ERRO - Aluno tentando listar usuários
+# Deve retornar erro 403 (Forbidden)
+GET {{baseUrl}}/users
+Authorization: Bearer {{tokenAluno}}
+
+###
+
+### 17. TESTE DE ERRO - Requisição sem token
+# Deve retornar erro 401 (Unauthorized)
+GET {{baseUrl}}/users
+
+###
+
+# ============================================================================
+# CRUD DE POSTS - LEITURA (REQUER AUTENTICAÇÃO)
+# ============================================================================
+
+### 18. LISTAR TODOS OS POSTS (Aluno ou Professor)
+# Requer autenticação - professores e alunos podem ler
+GET {{baseUrl}}/posts
+Authorization: Bearer {{tokenAluno}}
+
+###
+
+### 19. BUSCAR POST POR ID (Aluno ou Professor)
+# Requer autenticação - professores e alunos podem ler
+# Substitua o ID conforme necessário
+GET {{baseUrl}}/posts/1
+Authorization: Bearer {{tokenAluno}}
+
+###
+
+### 20. BUSCAR POSTS POR TERMO (Aluno ou Professor)
+# Requer autenticação - professores e alunos podem ler
+GET {{baseUrl}}/posts/search?q=Node
+Authorization: Bearer {{tokenAluno}}
+
+###
+
+# ============================================================================
+# CRUD DE POSTS - CRIAÇÃO/EDIÇÃO/EXCLUSÃO (APENAS PROFESSORES)
+# ============================================================================
+
+### 21. CRIAR POST (Professor)
+# Requer autenticação + role PROFESSOR
+POST {{baseUrl}}/posts
+Authorization: Bearer {{tokenProfessor}}
+Content-Type: application/json
+
+{
+  "Title": "Autenticação com JWT",
+  "Content": "JSON Web Token (JWT) é um padrão aberto para transmitir informações de forma segura entre partes. É amplamente utilizado para autenticação e autorização em APIs RESTful, permitindo que usuários façam login uma vez e usem um token para acessar recursos protegidos.",
+  "Author": "Prof. João Silva"
+}
+
+###
+
+### 22. CRIAR POST SOBRE PRISMA (Professor)
+POST {{baseUrl}}/posts
+Authorization: Bearer {{tokenProfessor}}
+Content-Type: application/json
+
+{
+  "Title": "Banco de Dados com Prisma",
+  "Content": "Prisma é um ORM (Object-Relational Mapping) moderno que facilita o trabalho com bancos de dados, oferecendo type safety e uma API intuitiva para operações de CRUD.",
+  "Author": "Prof. João Silva"
+}
+
+###
+
+### 23. CRIAR POST SOBRE TYPESCRIPT (Professor)
+POST {{baseUrl}}/posts
+Authorization: Bearer {{tokenProfessor}}
+Content-Type: application/json
+
+{
+  "Title": "TypeScript para Iniciantes",
+  "Content": "TypeScript é um superset do JavaScript que adiciona tipagem estática, tornando o código mais robusto, fácil de manter e menos propenso a erros em tempo de execução.",
+  "Author": "Prof. João Silva"
+}
+
+###
+
+### 24. ATUALIZAR POST (Professor)
+# Requer autenticação + role PROFESSOR
+# Substitua o ID conforme necessário
+PUT {{baseUrl}}/posts/1
+Authorization: Bearer {{tokenProfessor}}
+Content-Type: application/json
+
+{
+  "Title": "Introdução ao Node.js - Versão Atualizada",
+  "Content": "Node.js é uma plataforma de desenvolvimento que permite executar JavaScript no servidor. Conteúdo atualizado com mais detalhes sobre suas funcionalidades e casos de uso.",
+  "Author": "Prof. João Silva"
+}
+
+###
+
+### 25. DELETAR POST (Professor)
+# Requer autenticação + role PROFESSOR
+# Cuidado: operação irreversível
+# Substitua o ID conforme necessário
+DELETE {{baseUrl}}/posts/3
+Authorization: Bearer {{tokenProfessor}}
+
+###
+
+# ============================================================================
+# TESTES DE AUTORIZAÇÃO - VERIFICAR BLOQUEIOS
+# ============================================================================
+
+### 26. TESTE DE ERRO - Aluno tentando criar post
+# Deve retornar erro 403 (Forbidden)
+POST {{baseUrl}}/posts
+Authorization: Bearer {{tokenAluno}}
+Content-Type: application/json
+
+{
+  "Title": "Post de Aluno - Deve Falhar",
+  "Content": "Este post não deve ser criado pois alunos não têm permissão",
+  "Author": "Maria Aluna"
+}
+
+###
+
+### 27. TESTE DE ERRO - Aluno tentando editar post
+# Deve retornar erro 403 (Forbidden)
+PUT {{baseUrl}}/posts/1
+Authorization: Bearer {{tokenAluno}}
+Content-Type: application/json
+
+{
+  "Title": "Tentativa de Edição - Deve Falhar",
+  "Content": "Alunos não podem editar posts",
+  "Author": "Maria Aluna"
+}
+
+###
+
+### 28. TESTE DE ERRO - Aluno tentando deletar post
+# Deve retornar erro 403 (Forbidden)
+DELETE {{baseUrl}}/posts/1
+Authorization: Bearer {{tokenAluno}}
+
+###
+
+### 29. TESTE DE ERRO - Criar post sem autenticação
+# Deve retornar erro 401 (Unauthorized)
+POST {{baseUrl}}/posts
+Content-Type: application/json
+
+{
+  "Title": "Post Sem Auth - Deve Falhar",
+  "Content": "Sem token de autenticação",
+  "Author": "Anônimo"
+}
+
+###
+
+### 30. TESTE DE ERRO - Token inválido
+# Deve retornar erro 401 (Unauthorized)
+POST {{baseUrl}}/posts
+Authorization: Bearer token_invalido_xyz123
+Content-Type: application/json
+
+{
+  "Title": "Post com Token Inválido",
+  "Content": "Token inválido",
+  "Author": "Teste"
+}
+
+###
+
+# ============================================================================
+# TESTES ADICIONAIS DE VALIDAÇÃO
+# ============================================================================
+
+### 31. TESTE DE ERRO - Criar post sem campos obrigatórios
+POST {{baseUrl}}/posts
+Authorization: Bearer {{tokenProfessor}}
+Content-Type: application/json
+
+{
+  "Title": "Post Incompleto"
+}
+
+###
+
+### 32. TESTE DE ERRO - Buscar post inexistente
+GET {{baseUrl}}/posts/99999
+Authorization: Bearer {{tokenAluno}}
+
+###
+
+### 33. TESTE DE ERRO - Atualizar post inexistente
+PUT {{baseUrl}}/posts/99999
+Authorization: Bearer {{tokenProfessor}}
+Content-Type: application/json
+
+{
+  "Title": "Teste",
+  "Content": "Teste",
+  "Author": "Teste"
+}
+
+###
+
+### 34. TESTE DE ERRO - Deletar post inexistente
+DELETE {{baseUrl}}/posts/99999
+Authorization: Bearer {{tokenProfessor}}
+
+###
+
+### 35. BUSCA CASE-INSENSITIVE
+# Deve encontrar posts independente de maiúsculas/minúsculas
+GET {{baseUrl}}/posts/search?q=typescript
+Authorization: Bearer {{tokenAluno}}
+
+###
+
+### 36. BUSCA POR CONTEÚDO
+# Deve buscar tanto no título quanto no conteúdo
+GET {{baseUrl}}/posts/search?q=JavaScript
+Authorization: Bearer {{tokenAluno}}
+
+###
+
+### 37. TESTE DE ERRO - Ler posts sem autenticação
+# Deve retornar erro 401 (Unauthorized)
+GET {{baseUrl}}/posts
+
+###
+
+###
+# Fim dos testes - NexEdu API
+#
+# RESUMO DOS ENDPOINTS:
+#
+# PÚBLICOS (não requer autenticação):
+# - POST /auth/register - Registrar novo usuário
+# - POST /auth/login - Fazer login
+#
+# LEITURA (requer autenticação - professores e alunos):
+# - GET /posts - Listar todos os posts
+# - GET /posts/:id - Buscar post por ID
+# - GET /posts/search?q= - Buscar posts por termo
+#
+# APENAS PROFESSORES (requer autenticação + role PROFESSOR):
+# - GET /users - Listar todos os usuários
+# - GET /users/:id - Buscar usuário por ID
+# - PUT /users/:id - Atualizar usuário
+# - DELETE /users/:id - Deletar usuário
+# - POST /posts - Criar novo post
+# - PUT /posts/:id - Atualizar post
+# - DELETE /posts/:id - Deletar post
+#
+# DICAS:
+# - Sempre guarde os tokens JWT após o login
+# - Tokens são válidos por 24 horas
+# - Use SEU_TOKEN_PROFESSOR e SEU_TOKEN_ALUNO como placeholders
+# - Teste primeiro com professor, depois com aluno para validar permissões
+# - Verifique os códigos de status HTTP (200, 201, 400, 401, 403, 404, 500)
+###
