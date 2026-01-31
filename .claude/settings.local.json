@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(npx prisma@6.16.3 generate:*)",
+      "Bash(npx tsc:*)",
+      "Bash(chmod:*)",
+      "Bash(npx prisma migrate dev:*)"
     ]
   }
 }
