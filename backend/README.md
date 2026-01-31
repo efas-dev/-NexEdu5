@@ -1,6 +1,6 @@
-# NexEdu Backend.
+# NexEdu Backend - Tech Challenge Fase 5
 
-API RESTful para gerenciamento de posts educacionais com sistema de autenticação e autorização baseado em roles (Professor/Aluno).
+API RESTful para gerenciamento educacional completo com sistema de autenticação e autorização baseado em múltiplos roles (Admin/Professor/Aluno/Responsável). Inclui gestão de turmas, frequência e sistema de mensagens.
 
 ## Tecnologias
 
@@ -15,10 +15,10 @@ API RESTful para gerenciamento de posts educacionais com sistema de autenticaç�
 ## Funcionalidades
 
 ### Autenticação e Autorização
-- Registro de usuários (Professor e Aluno)
+- Registro de usuários (Admin, Professor, Aluno e Responsável)
 - Login com geração de token JWT
 - Middleware de autenticação
-- Controle de acesso baseado em roles
+- Controle de acesso baseado em roles (RBAC)
 
 ### Gerenciamento de Usuários (Apenas Professores)
 - Listar todos os usuários
@@ -354,4 +354,4 @@ npx prisma studio
 
 ---
 
-Desenvolvido pela Equipe NexEdu - Pós Tech FIAP
+Desenvolvido para o **Tech Challenge - Fase 5 (FIAP)** pela Equipe NexEdu

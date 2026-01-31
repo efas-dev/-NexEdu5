@@ -1,6 +1,6 @@
-# NexEdu - Tech Challenge Fase 4
+# NexEdu - Tech Challenge Fase 5
 
-Plataforma multiplataforma para gestão de blog educacional desenvolvida como parte do Tech Challenge - Fase 4 (FIAP). Inclui aplicação mobile (React Native) e web (Next.js).
+Plataforma multiplataforma para gestão educacional desenvolvida como parte do Tech Challenge - Fase 5 (FIAP). Inclui aplicação mobile (React Native) e web (Next.js), com suporte a turmas, frequência, mensagens e múltiplos papéis de usuário.
 
 ## 🚀 Visão Geral
 
@@ -997,7 +997,7 @@ Agora você pode:
 
 ## Autores
 
-Projeto desenvolvido para o **Tech Challenge - Fase 4 (FIAP)**
+Projeto desenvolvido para o **Tech Challenge - Fase 5 (FIAP)**
 
 ---
 

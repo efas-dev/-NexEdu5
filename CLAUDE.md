@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-NexEduMobile is a React Native/Expo educational blog management app with a Node.js backend. It's a FIAP Tech Challenge (Fase 4) project featuring role-based access control (PROFESSOR/ALUNO).
+NexEduMobile is a React Native/Expo educational blog management app with a Node.js backend. It's a FIAP Tech Challenge (Fase 5) project featuring role-based access control (PROFESSOR/ALUNO/ADMIN/RESPONSAVEL).
 
 ## Development Commands
 

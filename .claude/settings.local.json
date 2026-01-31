@@ -6,7 +6,10 @@
       "Bash(npx prisma@6.16.3 generate:*)",
       "Bash(npx tsc:*)",
       "Bash(chmod:*)",
-      "Bash(npx prisma migrate dev:*)"
+      "Bash(npx prisma migrate dev:*)",
+      "Bash(git status:*)",
+      "Bash(git check-ignore:*)",
+      "Bash(node generate-diagrams.js:*)"
     ]
   }
 }
