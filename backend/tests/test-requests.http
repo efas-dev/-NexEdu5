@@ -25,8 +25,10 @@
 
 # Tokens JWT - Cole aqui os tokens obtidos nas requisições de login (8 e 9)
 # Substitua "SEU_TOKEN_AQUI" pelos tokens reais retornados pelo endpoint /auth/login
-@tokenProfessor = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwibG9naW4iOiJqb2FvLnByb2Zlc3NvciIsInJvbGUiOiJQUk9GRVNTT1IiLCJpYXQiOjE3NTk3MTQ3NDEsImV4cCI6MTc1OTgwMTE0MX0.atapP35D4_4Bbh0p4LSHAgCWWH_RxpHH7zxyVGXzWVc
-@tokenAluno = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwibG9naW4iOiJtYXJpYS5hbHVuYSIsInJvbGUiOiJBTFVOTyIsImlhdCI6MTc1OTcxNDc2MSwiZXhwIjoxNzU5ODAxMTYxfQ.N6eMS3U1qhjGN6uz-UI4akyHKeli3gsGJidx3cHoYZ8
+@tokenProfessor = SEU_TOKEN_PROFESSOR_AQUI
+@tokenAluno = SEU_TOKEN_ALUNO_AQUI
+@tokenPai = SEU_TOKEN_PAI_AQUI
+@tokenAdmin = SEU_TOKEN_ADMIN_AQUI
 
 # ============================================================================
 # TESTE BÁSICO
@@ -114,7 +116,35 @@ Content-Type: application/json
 
 ###
 
-### 7. TESTE DE ERRO - Role inválido
+### 7. REGISTRAR PAI
+# Cria um novo usuário com role de PAI (responsável)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Carlos Pai",
+  "login": "carlos.pai",
+  "password": "senha123",
+  "role": "PAI"
+}
+
+###
+
+### 8. REGISTRAR ADMIN (Direção)
+# Cria um novo usuário com role de ADMIN
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Diretora Ana",
+  "login": "ana.diretora",
+  "password": "senha123",
+  "role": "ADMIN"
+}
+
+###
+
+### 9. TESTE DE ERRO - Role inválido
 # Deve retornar erro 400
 POST {{baseUrl}}/auth/register
 Content-Type: application/json
@@ -123,7 +153,7 @@ Content-Type: application/json
   "name": "Usuário Teste",
   "login": "teste.invalido",
   "password": "senha123",
-  "role": "ADMIN"
+  "role": "INVALIDO"
 }
 
 ###
@@ -486,4 +516,264 @@ GET {{baseUrl}}/posts
 # - Use SEU_TOKEN_PROFESSOR e SEU_TOKEN_ALUNO como placeholders
 # - Teste primeiro com professor, depois com aluno para validar permissões
 # - Verifique os códigos de status HTTP (200, 201, 400, 401, 403, 404, 500)
+###
+
+# ============================================================================
+# NOVOS ENDPOINTS - TURMAS (PROFESSOR/ADMIN)
+# ============================================================================
+
+### CRIAR TURMA (Professor)
+POST {{baseUrl}}/turmas
+Authorization: Bearer {{tokenProfessor}}
+Content-Type: application/json
+
+{
+  "nome": "5A",
+  "serie": "5º Ano",
+  "turno": "MANHA",
+  "anoLetivo": 2026
+}
+
+###
+
+### LISTAR TURMAS (Professor)
+GET {{baseUrl}}/turmas
+Authorization: Bearer {{tokenProfessor}}
+
+###
+
+### BUSCAR TURMA POR ID (Professor)
+GET {{baseUrl}}/turmas/1
+Authorization: Bearer {{tokenProfessor}}
+
+###
+
+### ATUALIZAR TURMA (Professor)
+PUT {{baseUrl}}/turmas/1
+Authorization: Bearer {{tokenProfessor}}
+Content-Type: application/json
+
+{
+  "nome": "5A - Atualizada",
+  "turno": "TARDE"
+}
+
+###
+
+### VINCULAR ALUNOS À TURMA (Professor)
+# Substitua os IDs pelos IDs reais dos alunos
+POST {{baseUrl}}/turmas/1/alunos
+Authorization: Bearer {{tokenProfessor}}
+Content-Type: application/json
+
+{
+  "alunoIds": [2, 5]
+}
+
+###
+
+### LISTAR ALUNOS DA TURMA (Professor)
+GET {{baseUrl}}/turmas/1/alunos
+Authorization: Bearer {{tokenProfessor}}
+
+###
+
+# ============================================================================
+# NOVOS ENDPOINTS - PRESENÇA (PROFESSOR)
+# ============================================================================
+
+### REGISTRAR PRESENÇAS EM LOTE (Professor)
+POST {{baseUrl}}/attendance/bulk
+Authorization: Bearer {{tokenProfessor}}
+Content-Type: application/json
+
+{
+  "turmaId": 1,
+  "data": "2026-01-26",
+  "presencas": [
+    { "alunoId": 2, "presente": true },
+    { "alunoId": 5, "presente": false, "justificativa": "Atestado médico" }
+  ]
+}
+
+###
+
+### BUSCAR PRESENÇAS DA TURMA POR DATA (Professor)
+GET {{baseUrl}}/attendance/turma/1/date/2026-01-26
+Authorization: Bearer {{tokenProfessor}}
+
+###
+
+### BUSCAR HISTÓRICO DE PRESENÇA DO ALUNO (Professor)
+GET {{baseUrl}}/attendance/student/2
+Authorization: Bearer {{tokenProfessor}}
+
+###
+
+### BUSCAR RESUMO DE PRESENÇA DO ALUNO (Professor)
+GET {{baseUrl}}/attendance/student/2/summary
+Authorization: Bearer {{tokenProfessor}}
+
+###
+
+# ============================================================================
+# NOVOS ENDPOINTS - VÍNCULO PAI-ALUNO (ADMIN/PROFESSOR)
+# ============================================================================
+
+### VINCULAR PAI A ALUNO (Admin/Professor)
+POST {{baseUrl}}/parent/link
+Authorization: Bearer {{tokenProfessor}}
+Content-Type: application/json
+
+{
+  "parentId": 6,
+  "studentId": 2,
+  "parentesco": "PAI",
+  "principal": true
+}
+
+###
+
+# ============================================================================
+# NOVOS ENDPOINTS - MENSAGENS (PROFESSOR/ADMIN)
+# ============================================================================
+
+### ENVIAR MENSAGEM INDIVIDUAL (Professor)
+# Mensagem para pais de um aluno específico
+POST {{baseUrl}}/messages
+Authorization: Bearer {{tokenProfessor}}
+Content-Type: application/json
+
+{
+  "titulo": "Sobre o desempenho de Maria",
+  "conteudo": "Gostaria de informar que Maria apresentou excelente desempenho na última avaliação.",
+  "categoria": "DESEMPENHO",
+  "alunoId": 2
+}
+
+###
+
+### ENVIAR MENSAGEM PARA TURMA (Professor)
+# Broadcast para todos os pais da turma
+POST {{baseUrl}}/messages/broadcast
+Authorization: Bearer {{tokenProfessor}}
+Content-Type: application/json
+
+{
+  "titulo": "Reunião de Pais",
+  "conteudo": "Convidamos todos os pais para a reunião que será realizada no dia 30/01/2026 às 19h.",
+  "categoria": "REUNIAO",
+  "turmaId": 1
+}
+
+###
+
+### ENVIAR MENSAGEM GLOBAL (Admin/Direção)
+# Mensagem para TODOS os pais do sistema
+POST {{baseUrl}}/messages/global
+Authorization: Bearer {{tokenAdmin}}
+Content-Type: application/json
+
+{
+  "titulo": "Calendário de Feriados 2026",
+  "conteudo": "Informamos os feriados previstos para o ano letivo de 2026...",
+  "categoria": "COMUNICADO"
+}
+
+###
+
+### LISTAR MENSAGENS ENVIADAS (Professor/Admin)
+GET {{baseUrl}}/messages/sent
+Authorization: Bearer {{tokenProfessor}}
+
+###
+
+# ============================================================================
+# NOVOS ENDPOINTS - PAI (APENAS PAI)
+# ============================================================================
+
+### LOGIN PAI
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "login": "carlos.pai",
+  "password": "senha123"
+}
+
+###
+
+### LISTAR FILHOS (Pai)
+GET {{baseUrl}}/parent/children
+Authorization: Bearer {{tokenPai}}
+
+###
+
+### BUSCAR FREQUÊNCIA DO FILHO (Pai)
+# Substitua o ID pelo ID real do filho
+GET {{baseUrl}}/parent/children/2/attendance
+Authorization: Bearer {{tokenPai}}
+
+###
+
+### DASHBOARD DO PAI
+GET {{baseUrl}}/parent/dashboard
+Authorization: Bearer {{tokenPai}}
+
+###
+
+### LISTAR INBOX - CAIXA DE ENTRADA (Pai)
+GET {{baseUrl}}/messages/inbox
+Authorization: Bearer {{tokenPai}}
+
+###
+
+### CONTAR MENSAGENS NÃO LIDAS (Pai)
+GET {{baseUrl}}/messages/unread-count
+Authorization: Bearer {{tokenPai}}
+
+###
+
+### MARCAR MENSAGEM COMO LIDA (Pai)
+# Substitua o ID pelo ID real da mensagem
+PUT {{baseUrl}}/messages/1/read
+Authorization: Bearer {{tokenPai}}
+
+###
+
+# ============================================================================
+# TESTES DE AUTORIZAÇÃO - NOVOS ENDPOINTS
+# ============================================================================
+
+### TESTE - Pai tentando criar turma (deve falhar 403)
+POST {{baseUrl}}/turmas
+Authorization: Bearer {{tokenPai}}
+Content-Type: application/json
+
+{
+  "nome": "Teste",
+  "serie": "Teste",
+  "turno": "MANHA",
+  "anoLetivo": 2026
+}
+
+###
+
+### TESTE - Aluno tentando ver mensagens (deve falhar 403)
+GET {{baseUrl}}/messages/inbox
+Authorization: Bearer {{tokenAluno}}
+
+###
+
+### TESTE - Professor tentando ver inbox de pai (deve falhar 403)
+GET {{baseUrl}}/messages/inbox
+Authorization: Bearer {{tokenProfessor}}
+
+###
+
+### TESTE - Pai tentando ver frequência de aluno não vinculado (deve falhar 403)
+# Use um ID de aluno que não está vinculado ao pai
+GET {{baseUrl}}/parent/children/999/attendance
+Authorization: Bearer {{tokenPai}}
+
 ###

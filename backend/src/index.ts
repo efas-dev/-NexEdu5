@@ -23,6 +23,7 @@ import cors from "cors";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { authenticate, requireProfessor, AuthRequest } from "./middleware/auth";
+import apiRoutes from "./routes";
 
 // Inicialização do Express e Prisma
 const app = express();
@@ -30,12 +31,15 @@ const prisma = new PrismaClient();
 
 // Configuração de CORS
 app.use(cors({
-  origin: ["http://localhost:5173", "http://localhost:2025", "http://localhost:8081"],
+  origin: ["http://localhost:5173", "http://localhost:2025", "http://localhost:8081", "http://localhost:3001"],
   credentials: true,
 }));
 
 // Middleware para parsing de JSON nas requisições
 app.use(express.json());
+
+// Novas rotas modularizadas (turmas, presença, mensagens, pais)
+app.use(apiRoutes);
 
 // Constantes
 const JWT_SECRET = process.env.JWT_SECRET || "nexedu-secret-key-change-in-production";
@@ -76,8 +80,9 @@ app.post("/auth/register", async (req: Request, res: Response) => {
     }
 
     // Validação do role
-    if (role !== "PROFESSOR" && role !== "ALUNO") {
-      res.status(400).json({ error: "Role deve ser PROFESSOR ou ALUNO" });
+    const validRoles = ["PROFESSOR", "ALUNO", "PAI", "ADMIN"];
+    if (!validRoles.includes(role)) {
+      res.status(400).json({ error: "Role deve ser PROFESSOR, ALUNO, PAI ou ADMIN" });
       return;
     }
 
@@ -269,8 +274,9 @@ app.put(
       const { name, login, password, role } = req.body;
 
       // Validação do role se fornecido
-      if (role && role !== "PROFESSOR" && role !== "ALUNO") {
-        res.status(400).json({ error: "Role deve ser PROFESSOR ou ALUNO" });
+      const validRoles = ["PROFESSOR", "ALUNO", "PAI", "ADMIN"];
+      if (role && !validRoles.includes(role)) {
+        res.status(400).json({ error: "Role deve ser PROFESSOR, ALUNO, PAI ou ADMIN" });
         return;
       }
 

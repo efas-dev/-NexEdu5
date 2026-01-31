@@ -8,7 +8,9 @@ interface User {
   id: string
   name: string
   login: string
-  role: 'PROFESSOR' | 'ALUNO'
+  role: 'PROFESSOR' | 'ALUNO' | 'PAI' | 'ADMIN'
+  email?: string
+  telefone?: string
 }
 
 interface AuthContextData {

@@ -1,10 +1,68 @@
-# NexEduMobile - Tech Challenge Fase 4
+# NexEdu - Tech Challenge Fase 4
 
-Aplicação mobile para gestão de blog educacional desenvolvida em React Native como parte do Tech Challenge - Fase 4 (FIAP).
+Plataforma multiplataforma para gestão de blog educacional desenvolvida como parte do Tech Challenge - Fase 4 (FIAP). Inclui aplicação mobile (React Native) e web (Next.js).
+
+## 🚀 Visão Geral
+
+O NexEdu é uma plataforma completa que oferece:
+
+- **📱 Aplicação Mobile**: Desenvolvida em React Native/Expo com Material Design 3
+  - Suporte para Android, iOS e Web via Expo
+  - Interface nativa e responsiva
+  - Dark mode com tema automático
+
+- **🌐 Aplicação Web**: Desenvolvida em Next.js 14 com shadcn/ui
+  - Interface moderna e acessível
+  - Server-side rendering (SSR)
+  - Otimizada para SEO
+
+- **🔐 Backend REST API**: Node.js/Express com PostgreSQL
+  - Autenticação JWT
+  - Controle de acesso baseado em roles (Professor/Aluno)
+  - Documentação de endpoints
+
+### Arquitetura da Plataforma
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    NEXEDU PLATFORM                          │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ┌──────────────┐         ┌──────────────┐                │
+│  │   Mobile App │         │   Web App    │                │
+│  │              │         │              │                │
+│  │ React Native │         │   Next.js    │                │
+│  │    + Expo    │         │  + shadcn/ui │                │
+│  │              │         │              │                │
+│  │  Port: 8081  │         │  Port: 3001  │                │
+│  └──────┬───────┘         └──────┬───────┘                │
+│         │                        │                         │
+│         └────────────┬───────────┘                         │
+│                      │                                     │
+│                      ▼                                     │
+│            ┌─────────────────┐                            │
+│            │   REST API      │                            │
+│            │                 │                            │
+│            │  Node.js        │                            │
+│            │  + Express      │                            │
+│            │  + JWT Auth     │                            │
+│            │                 │                            │
+│            │  Port: 3000     │                            │
+│            └────────┬────────┘                            │
+│                     │                                     │
+│                     ▼                                     │
+│            ┌─────────────────┐                            │
+│            │   PostgreSQL    │                            │
+│            │                 │                            │
+│            │  Port: 5433     │                            │
+│            └─────────────────┘                            │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ## Tecnologias
 
-### Frontend
+### Frontend Mobile (React Native)
 - **React Native** 0.81.5 com Expo 54.0.30
 - **TypeScript** 5.9.2
 - **React Native Paper** 5.x - Material Design 3 UI Library
@@ -14,6 +72,16 @@ Aplicação mobile para gestão de blog educacional desenvolvida em React Native
 - **Axios** 1.13.2 para requisições HTTP
 - **AsyncStorage** para persistência de token e preferências
 - **Context API** para gerenciamento de estado global (Auth, Theme, Snackbar)
+
+### Frontend Web (Next.js)
+- **Next.js** 14.2.33 (App Router)
+- **TypeScript** 5.x
+- **shadcn/ui** - Componentes UI baseados em Radix UI
+- **Tailwind CSS** 3.4.1 - Framework CSS utility-first
+- **Radix UI** - Componentes acessíveis e não estilizados
+- **Lucide React** - Ícones modernos
+- **next-themes** - Suporte a dark mode
+- **cmdk** - Command palette
 
 ### Backend
 - **Node.js** com Express 5.1.0
@@ -147,20 +215,42 @@ A aplicação foi completamente reformulada seguindo os princípios do **Materia
 ## Estrutura do Projeto
 
 ```
-pos-fiap-fase4/
-├── backend/                    # Backend Node.js
+NexEduMobile4-main/
+├── backend/                           # Backend Node.js
 │   ├── src/
-│   │   ├── index.ts           # Servidor Express + rotas
+│   │   ├── index.ts                  # Servidor Express + rotas
+│   │   ├── controllers/              # Controladores das rotas
+│   │   ├── routes/                   # Definição das rotas
+│   │   ├── utils/                    # Utilitários
 │   │   └── middleware/
-│   │       └── auth.ts        # Middleware de autenticação JWT
+│   │       └── auth.ts               # Middleware de autenticação JWT
 │   ├── prisma/
-│   │   ├── schema.prisma      # Schema do banco de dados
-│   │   └── migrations/        # Migrações do Prisma
-│   ├── docker-compose.yml     # PostgreSQL containerizado
-│   ├── Dockerfile             # Imagem Docker do backend
-│   └── package.json           # Dependências do backend
+│   │   ├── schema.prisma             # Schema do banco de dados
+│   │   └── migrations/               # Migrações do Prisma
+│   ├── tests/                        # Arquivos de teste
+│   │   ├── test-requests.http        # Requisições HTTP (REST Client)
+│   │   └── teste.sh                  # Script de testes automatizados
+│   ├── docker-compose.yml            # PostgreSQL containerizado
+│   ├── Dockerfile                    # Imagem Docker do backend
+│   └── package.json                  # Dependências do backend
 │
-├── src/                       # Frontend React Native
+├── frontend-web-shadcnui/            # Frontend Web Next.js
+│   ├── app/                          # App Router (Next.js 14)
+│   │   ├── layout.tsx                # Layout principal
+│   │   ├── page.tsx                  # Página inicial
+│   │   └── (auth)/                   # Rotas de autenticação
+│   ├── components/
+│   │   ├── ui/                       # Componentes shadcn/ui
+│   │   └── shared/                   # Componentes compartilhados
+│   ├── contexts/                     # Contexts (Auth, Theme)
+│   ├── hooks/                        # Custom hooks
+│   ├── lib/                          # Utilitários e configurações
+│   ├── public/                       # Arquivos estáticos
+│   ├── tailwind.config.ts            # Configuração Tailwind
+│   ├── components.json               # Configuração shadcn/ui
+│   └── package.json                  # Dependências do frontend web
+│
+├── src/                              # Frontend Mobile React Native
 │   ├── components/            # Componentes reutilizáveis
 │   │   ├── ui/               # Wrappers sobre React Native Paper
 │   │   │   ├── Button.tsx
@@ -271,6 +361,11 @@ Client Request
 
 ## Como Executar
 
+Este projeto possui três componentes principais:
+1. **Backend** (Node.js/Express) - Porta 3000
+2. **Frontend Mobile** (React Native/Expo) - Porta 8081 (Metro bundler)
+3. **Frontend Web** (Next.js) - Porta 3001
+
 ### Pré-requisitos
 
 - **Node.js** 20.x ou superior ⚠️ **OBRIGATÓRIO** (v18 não funciona!)
@@ -379,7 +474,7 @@ curl -X POST http://localhost:3000/auth/register \
 ```
 
 **Opção 2: Usando o arquivo `test-requests.http` no backend**
-- Abra o arquivo `backend/test-requests.http` em um editor compatível (VS Code + extensão REST Client)
+- Abra o arquivo `backend/tests/test-requests.http` em um editor compatível (VS Code + extensão REST Client)
 - Execute a requisição de registro
 
 **Opção 3: Via Prisma Studio**
@@ -388,11 +483,13 @@ curl -X POST http://localhost:3000/auth/register \
 - Adicione um novo usuário manualmente
 - **IMPORTANTE**: A senha precisa ser hasheada. Use um gerador de bcrypt online com 10 rounds.
 
-#### 4. (OPCIONAL) Configurar para Dispositivo Físico
+#### 4. (OPCIONAL) Configurar Frontend Mobile para Dispositivo Físico
 
-**Por padrão, o app está configurado para rodar no navegador (localhost)**.
+**Por padrão, o app mobile está configurado para rodar no navegador (localhost)**.
 
-Se quiser testar em **celular físico ou emulador Android/iOS**, siga as instruções na seção [Configurar para Dispositivo Físico](#configurar-para-dispositivo-físico) no final deste README.
+Se quiser testar o **frontend mobile** em **celular físico ou emulador Android/iOS**, siga as instruções na seção [Configurar para Dispositivo Físico](#configurar-para-dispositivo-físico) no final deste README.
+
+**Nota**: Esta configuração é apenas para o frontend mobile. O frontend web sempre rodará em `http://localhost:3001` e pode ser acessado de qualquer navegador na mesma máquina.
 
 #### 5. Instalar Dependências do Frontend
 
@@ -404,20 +501,51 @@ cd ..
 npm install
 ```
 
-#### 6. Iniciar o Frontend
+#### 6. Iniciar o Frontend Mobile
 
 ```bash
+# Voltar para a raiz do projeto (se ainda estiver no backend)
+cd ..
+
 # Iniciar o Expo
 npm start
 ```
 
 Opções disponíveis:
-- Pressione `w` - Abrir no navegador (Web) 
+- Pressione `w` - Abrir no navegador (Web)
 - Pressione `a` - Abrir no emulador Android (requer configuração adicional)
 - Pressione `i` - Abrir no simulador iOS (apenas macOS, requer configuração adicional)
 - Escaneie o QR Code com o app Expo Go (requer configuração adicional)
 
 **Comece testando no navegador (`w`)** - funciona imediatamente sem configuração adicional!
+
+#### 7. (OPCIONAL) Iniciar o Frontend Web
+
+```bash
+# Navegar para a pasta do frontend web
+cd frontend-web-shadcnui
+
+# Instalar dependências (apenas na primeira vez)
+npm install
+
+# Criar arquivo .env.local
+cp .env.local.example .env.local
+# Edite .env.local e configure a URL da API:
+# NEXT_PUBLIC_API_URL=http://localhost:3000
+
+# Iniciar o servidor de desenvolvimento
+npm run dev
+```
+
+O frontend web estará disponível em **http://localhost:3001**
+
+**Comandos disponíveis:**
+```bash
+npm run dev       # Modo desenvolvimento (porta 3001)
+npm run build     # Build para produção
+npm run start     # Inicia servidor de produção
+npm run lint      # Executa ESLint
+```
 
 ---
 
@@ -669,6 +797,25 @@ DELETE /users/:id  - Excluir usuário
 - Limpe o cache do Expo: `expo start -c`
 - Limpe o AsyncStorage (reinstale o app)
 
+### Frontend Web não inicia
+- Verifique se a porta 3001 está livre
+- Se a porta estiver ocupada, altere em `package.json` do frontend-web-shadcnui:
+  ```bash
+  "dev": "next dev -p 3002"  # Ou outra porta disponível
+  ```
+- Certifique-se de ter criado o arquivo `.env.local` com a URL da API
+- Execute `npm install` dentro da pasta `frontend-web-shadcnui`
+
+### Erro de CORS no frontend web
+- Verifique se o backend está configurado para aceitar requisições do frontend web
+- No arquivo `backend/src/index.ts`, certifique-se que o CORS inclui `http://localhost:3001`:
+  ```typescript
+  app.use(cors({
+    origin: ["http://localhost:5173", "http://localhost:2025", "http://localhost:3001"],
+    credentials: true,
+  }));
+  ```
+
 ---
 
 ## Credenciais de Teste
@@ -684,7 +831,7 @@ DELETE /users/:id  - Excluir usuário
 
 | Categoria | Tecnologia | Versão | Uso |
 |-----------|------------|--------|-----|
-| **Frontend** | React Native | 0.81.5 | Framework mobile |
+| **Frontend Mobile** | React Native | 0.81.5 | Framework mobile |
 | | Expo | 54.0.30 | Build e desenvolvimento |
 | | TypeScript | 5.9.2 | Tipagem estática |
 | | React Native Paper | 5.x | Material Design 3 UI |
@@ -693,6 +840,13 @@ DELETE /users/:id  - Excluir usuário
 | | Vector Icons | - | Ícones Material Community |
 | | Axios | 1.13.2 | Cliente HTTP |
 | | AsyncStorage | - | Persistência local |
+| **Frontend Web** | Next.js | 14.2.33 | Framework React (App Router) |
+| | TypeScript | 5.x | Tipagem estática |
+| | shadcn/ui | - | Biblioteca de componentes |
+| | Tailwind CSS | 3.4.1 | Framework CSS |
+| | Radix UI | - | Primitivos UI acessíveis |
+| | Lucide React | - | Biblioteca de ícones |
+| | next-themes | - | Dark mode |
 | **Backend** | Node.js | 20+ | Runtime JavaScript |
 | | Express | 5.1.0 | Framework web |
 | | TypeScript | 5.8.3 | Tipagem estática |
@@ -705,9 +859,11 @@ DELETE /users/:id  - Excluir usuário
 
 ---
 
-## Configurar para Dispositivo Físico
+## Configurar Frontend Mobile para Dispositivo Físico
 
-Por padrão, o app está configurado para **rodar no navegador (localhost)**. Se você quiser testar em um **celular físico** ou **emulador/simulador**, siga estas instruções:
+**Esta seção é apenas para o frontend mobile (React Native/Expo).**
+
+Por padrão, o app mobile está configurado para **rodar no navegador (localhost)**. Se você quiser testar em um **celular físico** ou **emulador/simulador**, siga estas instruções:
 
 ### Pré-requisitos
 - Backend rodando (`cd backend && npm run dev`)
@@ -845,11 +1001,20 @@ Projeto desenvolvido para o **Tech Challenge - Fase 4 (FIAP)**
 
 ---
 
-## Changelog - Reformulação UI/UX
+## Changelog
+
+**Versão 3.0 - Janeiro 2026**
+
+### Adições
+- ✨ **Novo Frontend Web** com Next.js 14 e shadcn/ui
+- 📱 Suporte multiplataforma: Mobile (React Native) + Web (Next.js)
+- 🎨 Interface web moderna com Tailwind CSS e componentes shadcn/ui
+- 🌓 Dark mode nativo em ambas as plataformas
+- ♿ Componentes acessíveis via Radix UI no frontend web
 
 **Versão 2.0 - Janeiro 2026**
 
-### Principais Melhorias
+### Reformulação UI/UX Mobile
 - Implementa design system baseado em Material Design 3 via React Native Paper
 - Adiciona sistema de temas (light/dark mode) com ThemeContext
 - Cria componentes UI reutilizáveis (Button, Card, Input, Dialog, ConfirmDialog, etc.)
@@ -867,4 +1032,4 @@ Projeto desenvolvido para o **Tech Challenge - Fase 4 (FIAP)**
 ---
 
 **Última atualização**: Janeiro 2026
-**Status**: 100% Concluído e Funcional com UI/UX Modernizada
+**Status**: Plataforma Multiplataforma Completa (Mobile + Web)

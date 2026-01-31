@@ -204,9 +204,14 @@ DELETE /posts/:id          # Deletar post
 
 ## Testes
 
-Use o arquivo `test-requests.http` com a extensão REST Client do VS Code.
+Os arquivos de teste estão organizados na pasta `tests/`:
 
-### Como testar
+- **`tests/test-requests.http`** - Requisições HTTP para teste manual (REST Client do VS Code)
+- **`tests/teste.sh`** - Script automatizado de testes em bash
+
+### Opção 1: Testes Manuais (REST Client)
+
+Use o arquivo `tests/test-requests.http` com a extensão REST Client do VS Code.
 
 1. Instale a extensão REST Client no VS Code
 2. Inicie o servidor com `npm run dev` ou `docker-compose up`
@@ -214,13 +219,33 @@ Use o arquivo `test-requests.http` com a extensão REST Client do VS Code.
 4. Cole os tokens nas variáveis `@tokenProfessor` e `@tokenAluno` no arquivo
 5. Execute as demais requisições clicando em "Send Request"
 
-O arquivo contém 37 casos de teste cobrindo:
+O arquivo contém 37+ casos de teste cobrindo:
 - Autenticação e registro
 - CRUD completo de usuários
 - CRUD completo de posts
+- CRUD de turmas
+- Sistema de mensagens
+- Endpoints de pais
 - Testes de autorização (403 Forbidden)
 - Testes de autenticação (401 Unauthorized)
 - Testes de validação (400 Bad Request, 404 Not Found)
+
+### Opção 2: Testes Automatizados (Script Bash)
+
+Execute o script de testes automatizados:
+
+```bash
+# Dentro da pasta backend
+./tests/teste.sh
+```
+
+O script valida automaticamente todos os endpoints, incluindo:
+- Registro e login de usuários (Professor, Aluno, Pai, Admin)
+- CRUD de turmas
+- Vínculo pai-aluno
+- Registro de presença
+- Sistema de mensagens
+- Testes de autorização
 
 ## Estrutura do Projeto
 
@@ -230,9 +255,14 @@ NexEdu-backend/
 │   ├── migrations/         # Migrações do banco de dados
 │   └── schema.prisma       # Schema do Prisma
 ├── src/
-│   ├── middleware/
-│   │   └── auth.ts         # Middlewares de autenticação e autorização
+│   ├── controllers/        # Controladores das rotas
+│   ├── middleware/         # Middlewares de autenticação e autorização
+│   ├── routes/             # Definição das rotas
+│   ├── utils/              # Utilitários
 │   └── index.ts            # Servidor Express e rotas
+├── tests/                  # Arquivos de teste
+│   ├── test-requests.http  # Requisições HTTP para REST Client
+│   └── teste.sh            # Script de testes automatizados
 ├── dist/                   # Build TypeScript (gerado)
 ├── .env                    # Variáveis de ambiente (não versionado)
 ├── .env.example            # Exemplo de variáveis de ambiente
@@ -241,7 +271,6 @@ NexEdu-backend/
 ├── Dockerfile.dev          # Imagem Docker de desenvolvimento
 ├── package.json            # Dependências e scripts
 ├── tsconfig.json           # Configuração TypeScript
-├── test-requests.http      # Testes de API
 └── README.md               # Este arquivo
 ```
 

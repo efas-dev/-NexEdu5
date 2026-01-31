@@ -15,26 +15,27 @@ datasource db {
 }
 
 /// Modelo que representa um usuário do sistema NexEdu
-/// Pode ser um professor ou aluno com diferentes permissões
+/// Pode ser um professor, aluno ou pai com diferentes permissões
 model User {
   /// Identificador único do usuário (chave primária)
-  /// Gerado automaticamente de forma incremental
   id Int @id @default(autoincrement())
 
   /// Nome completo do usuário
-  /// Campo obrigatório
   name String
 
   /// Login único do usuário
-  /// Campo obrigatório e deve ser único no sistema
   login String @unique
 
-  /// Senha criptografada do usuário
-  /// Campo obrigatório, armazenada com hash bcrypt
+  /// Senha criptografada do usuário (hash bcrypt)
   password String
 
+  /// Email do usuário (opcional)
+  email String?
+
+  /// Telefone do usuário (opcional)
+  telefone String?
+
   /// Papel do usuário no sistema
-  /// Valores possíveis: PROFESSOR ou ALUNO
   role Role
 
   /// Data de criação do registro
@@ -45,12 +46,168 @@ model User {
 
   /// Posts criados pelo usuário (se for professor)
   posts Post[]
+
+  /// Turmas em que o usuário é aluno
+  turmasAluno AlunoTurma[]
+
+  /// Turmas em que o usuário é professor
+  turmasProfessor ProfessorTurma[]
+
+  /// Registros de presença do aluno
+  presencas Attendance[] @relation("AlunoPresenca")
+
+  /// Registros de presença registrados pelo professor
+  presencasRegistradas Attendance[] @relation("RegistradoPor")
+
+  /// Mensagens enviadas pelo usuário
+  mensagensEnviadas Message[] @relation("RemetenteMensagem")
+
+  /// Mensagens sobre este aluno
+  mensagensAluno Message[] @relation("AlunoMensagem")
+
+  /// Mensagens recebidas pelo usuário (inbox)
+  mensagensRecebidas MessageRecipient[]
+
+  /// Filhos vinculados (quando é PAI)
+  filhos ParentStudent[] @relation("PaiRelation")
+
+  /// Pais vinculados (quando é ALUNO)
+  pais ParentStudent[] @relation("AlunoRelation")
 }
 
 /// Enum que define os papéis possíveis de usuário
 enum Role {
   PROFESSOR
   ALUNO
+  PAI
+  ADMIN
+}
+
+/// Enum que define os turnos possíveis
+enum Turno {
+  MANHA
+  TARDE
+  NOITE
+}
+
+/// Enum que define os tipos de mensagem
+enum TipoMensagem {
+  INDIVIDUAL
+  TURMA
+  GERAL
+}
+
+/// Modelo que representa uma turma
+model Turma {
+  id        Int      @id @default(autoincrement())
+  nome      String
+  serie     String
+  turno     Turno
+  anoLetivo Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  alunos      AlunoTurma[]
+  professores ProfessorTurma[]
+  presencas   Attendance[]
+  mensagens   Message[]
+}
+
+/// Tabela de junção entre Aluno e Turma
+model AlunoTurma {
+  alunoId   Int
+  turmaId   Int
+  ativo     Boolean   @default(true)
+  dataFim   DateTime?
+  createdAt DateTime  @default(now())
+
+  aluno User  @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  turma Turma @relation(fields: [turmaId], references: [id], onDelete: Cascade)
+
+  @@id([alunoId, turmaId])
+  @@map("aluno_turma")
+}
+
+/// Tabela de junção entre Professor e Turma
+model ProfessorTurma {
+  professorId Int
+  turmaId     Int
+  disciplina  String?
+  createdAt   DateTime @default(now())
+
+  professor User  @relation(fields: [professorId], references: [id], onDelete: Cascade)
+  turma     Turma @relation(fields: [turmaId], references: [id], onDelete: Cascade)
+
+  @@id([professorId, turmaId])
+  @@map("professor_turma")
+}
+
+/// Modelo para registro de presença/frequência
+model Attendance {
+  id            Int      @id @default(autoincrement())
+  alunoId       Int
+  turmaId       Int
+  data          DateTime
+  presente      Boolean
+  justificativa String?
+  registradoPor Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  aluno      User  @relation("AlunoPresenca", fields: [alunoId], references: [id], onDelete: Cascade)
+  turma      Turma @relation(fields: [turmaId], references: [id], onDelete: Cascade)
+  registrado User  @relation("RegistradoPor", fields: [registradoPor], references: [id], onDelete: Cascade)
+
+  @@unique([alunoId, turmaId, data])
+}
+
+/// Modelo para mensagens do sistema
+model Message {
+  id          Int          @id @default(autoincrement())
+  titulo      String
+  conteudo    String
+  tipo        TipoMensagem
+  categoria   String
+  remetenteId Int
+  alunoId     Int?
+  turmaId     Int?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  remetente  User               @relation("RemetenteMensagem", fields: [remetenteId], references: [id], onDelete: Cascade)
+  aluno      User?              @relation("AlunoMensagem", fields: [alunoId], references: [id], onDelete: SetNull)
+  turma      Turma?             @relation(fields: [turmaId], references: [id], onDelete: SetNull)
+  recipients MessageRecipient[]
+}
+
+/// Tabela de destinatários de mensagens
+model MessageRecipient {
+  id          Int       @id @default(autoincrement())
+  messageId   Int
+  recipientId Int
+  lida        Boolean   @default(false)
+  lidaEm      DateTime?
+  createdAt   DateTime  @default(now())
+
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  recipient User    @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@map("message_recipient")
+}
+
+/// Tabela de vínculo entre Pai e Aluno
+model ParentStudent {
+  parentId   Int
+  studentId  Int
+  parentesco String
+  principal  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  parent  User @relation("PaiRelation", fields: [parentId], references: [id], onDelete: Cascade)
+  student User @relation("AlunoRelation", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@id([parentId, studentId])
+  @@map("parent_student")
 }
 
 /// Modelo que representa um post educacional no sistema NexEdu
@@ -77,7 +234,7 @@ model Post {
   authorId Int?
 
   /// Relacionamento com o usuário autor
-  author User? @relation(fields: [authorId], references: [id])
+  author User? @relation(fields: [authorId], references: [id], onDelete: SetNull)
 
   /// Data de criação do post
   createdAt DateTime @default(now())
