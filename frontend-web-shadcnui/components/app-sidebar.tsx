@@ -1,14 +1,13 @@
 "use client"
 
 import Image from "next/image"
-import { BookOpen, Settings, LogOut } from "lucide-react"
+import { BookOpen, Settings, LogOut, ClipboardCheck, Megaphone, Users, Mail, LayoutDashboard } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -22,11 +21,43 @@ const menuItems = [
     title: "Posts",
     url: "/posts",
     icon: BookOpen,
+    roles: ["PROFESSOR", "ALUNO", "PAI", "ADMIN"],
+  },
+  {
+    title: "Dashboard",
+    url: "/dashboard-pais",
+    icon: LayoutDashboard,
+    roles: ["PAI"],
+  },
+  {
+    title: "Meus Filhos",
+    url: "/meus-filhos",
+    icon: Users,
+    roles: ["PAI"],
+  },
+  {
+    title: "Meus Avisos",
+    url: "/meus-avisos",
+    icon: Mail,
+    roles: ["PAI"],
+  },
+  {
+    title: "Chamada",
+    url: "/chamada",
+    icon: ClipboardCheck,
+    roles: ["PROFESSOR"],
+  },
+  {
+    title: "Avisos",
+    url: "/avisos",
+    icon: Megaphone,
+    roles: ["ADMIN"],
   },
   {
     title: "Administração",
     url: "/admin",
     icon: Settings,
+    roles: ["PROFESSOR", "ADMIN"],
   },
 ]
 
@@ -37,13 +68,10 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ userName = "Usuário", userRole = "Aluno", onLogout }: AppSidebarProps) {
-  const isProfessor = userRole?.toLowerCase() === "professor"
+  const normalizedRole = userRole?.toUpperCase() || "ALUNO"
 
   const filteredMenuItems = menuItems.filter((item) => {
-    if (item.title === "Administração") {
-      return isProfessor
-    }
-    return true
+    return item.roles.includes(normalizedRole)
   })
 
   return (
