@@ -6,7 +6,7 @@ import { PostsTable } from "@/components/posts-table"
 
 export default function AdminPage() {
   return (
-    <ProtectedRoute requiredRole="PROFESSOR">
+    <ProtectedRoute requiredRole={["PROFESSOR", "ADMIN"]}>
       <SidebarLayout>
         <div className="space-y-4">
           <h1 className="text-3xl font-bold">Administração</h1>
