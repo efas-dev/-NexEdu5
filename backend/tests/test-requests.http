@@ -777,3 +777,196 @@ GET {{baseUrl}}/parent/children/999/attendance
 Authorization: Bearer {{tokenPai}}
 
 ###
+
+# ============================================================================
+# SETUP RÁPIDO PARA TESTES DO MOBILE
+#
+# Execute os requests abaixo NA ORDEM INDICADA para preparar o ambiente
+# completo sem precisar abrir o Prisma Studio.
+#
+# ATENÇÃO: após cada login, copie o token retornado e cole nas variáveis
+# @tokenProfessor, @tokenAluno, @tokenPai e @tokenAdmin no topo do arquivo.
+# Os IDs (turmaId, professorId, alunoId, paiId) serão retornados nas
+# respostas — observe e ajuste os requests seguintes se necessário.
+# ============================================================================
+
+# --- PASSO 1: Registrar os 4 usuários de teste ---
+
+### [SETUP 1/10] Registrar PROFESSOR de teste
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Professor Teste",
+  "login": "prof",
+  "password": "123456",
+  "role": "PROFESSOR"
+}
+
+###
+
+### [SETUP 2/10] Registrar ALUNO de teste
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Aluno Teste",
+  "login": "aluno",
+  "password": "123456",
+  "role": "ALUNO"
+}
+
+###
+
+### [SETUP 3/10] Registrar PAI de teste
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Pai Teste",
+  "login": "pai",
+  "password": "123456",
+  "role": "PAI"
+}
+
+###
+
+### [SETUP 4/10] Registrar ADMIN de teste
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Admin Teste",
+  "login": "admin",
+  "password": "123456",
+  "role": "ADMIN"
+}
+
+###
+
+# --- PASSO 2: Fazer login e copiar os tokens ---
+
+### [SETUP 5/10] Login PROFESSOR — copie o token para @tokenProfessor
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "login": "prof",
+  "password": "123456"
+}
+
+###
+
+### [SETUP 5b] Login PAI — copie o token para @tokenPai
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "login": "pai",
+  "password": "123456"
+}
+
+###
+
+### [SETUP 5c] Login ADMIN — copie o token para @tokenAdmin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "login": "admin",
+  "password": "123456"
+}
+
+###
+
+# --- PASSO 3: Listar usuários para descobrir os IDs ---
+
+### [SETUP 6/10] Listar usuários — anote o id do professor, aluno e pai
+# Use esses IDs nos passos seguintes (substituindo 1, 2, 3)
+GET {{baseUrl}}/users
+Authorization: Bearer {{tokenProfessor}}
+
+###
+
+# --- PASSO 4: Criar a turma ---
+
+### [SETUP 7/10] Criar TURMA
+# A resposta retorna o id da turma criada (ex: { "id": 1, "nome": "Turma A", ... })
+# Use esse id nos passos 8 e 9
+POST {{baseUrl}}/turmas
+Authorization: Bearer {{tokenProfessor}}
+Content-Type: application/json
+
+{
+  "nome": "Turma A",
+  "serie": "1º Ano",
+  "turno": "MANHA",
+  "anoLetivo": 2026
+}
+
+###
+
+# --- PASSO 5: Vincular professor, aluno e pai ---
+
+### [SETUP 8/10] Vincular PROFESSOR à TURMA
+# Substitua o :id da URL pelo id da turma retornado no passo 7
+# Substitua professorId pelo id do professor retornado no passo 6
+POST {{baseUrl}}/turmas/1/professores
+Authorization: Bearer {{tokenProfessor}}
+Content-Type: application/json
+
+{
+  "professorId": 1,
+  "disciplina": "Matemática"
+}
+
+###
+
+### [SETUP 9/10] Vincular ALUNO à TURMA
+# Substitua o :id da URL pelo id da turma retornado no passo 7
+# Substitua o valor em alunoIds pelo id do aluno retornado no passo 6
+POST {{baseUrl}}/turmas/1/alunos
+Authorization: Bearer {{tokenProfessor}}
+Content-Type: application/json
+
+{
+  "alunoIds": [2]
+}
+
+###
+
+### [SETUP 10/10] Vincular PAI ao ALUNO
+# Substitua parentId pelo id do pai retornado no passo 6
+# Substitua studentId pelo id do aluno retornado no passo 6
+POST {{baseUrl}}/parent/link
+Authorization: Bearer {{tokenProfessor}}
+Content-Type: application/json
+
+{
+  "parentId": 3,
+  "studentId": 2,
+  "parentesco": "pai",
+  "principal": true
+}
+
+###
+
+# --- VERIFICAÇÃO: confirmar que tudo foi criado corretamente ---
+
+### [VERIFICAR] Listar alunos da turma (deve retornar o aluno vinculado)
+GET {{baseUrl}}/turmas/1/alunos
+Authorization: Bearer {{tokenProfessor}}
+
+###
+
+### [VERIFICAR] Dashboard do pai (deve retornar filho + frequência)
+GET {{baseUrl}}/parent/dashboard
+Authorization: Bearer {{tokenPai}}
+
+###
+
+### [VERIFICAR] Listar filhos do pai (deve retornar o aluno vinculado)
+GET {{baseUrl}}/parent/children
+Authorization: Bearer {{tokenPai}}
+
+###

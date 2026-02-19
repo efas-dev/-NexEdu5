@@ -2,7 +2,11 @@
  * AppNavigator
  *
  * Navegação principal da aplicação
- * Stack Navigator (Login) + Bottom Tabs (Posts, Users, Profile)
+ * Stack Navigator (Login) + Bottom Tabs condicionais por role:
+ *   PROFESSOR: Posts | Chamada | Avisos | Usuários | Perfil
+ *   ADMIN:     Posts | Avisos  | Usuários | Perfil
+ *   ALUNO:     Posts | Perfil
+ *   PAI:       Dashboard | Meus Filhos | Meus Avisos | Perfil
  */
 
 import React from 'react';
@@ -13,7 +17,7 @@ import { useTheme } from '../hooks/useTheme';
 import { useAuth } from '../context/AuthContext';
 import { screenTransitions } from '../theme/animations';
 
-// Screens
+// Screens existentes
 import LoginScreen from '../screens/LoginScreen';
 import HomeScreen from '../screens/HomeScreen';
 import PostDetailScreen from '../screens/PostDetailScreen';
@@ -23,6 +27,13 @@ import UserListScreen from '../screens/UserListScreen';
 import UserFormScreen from '../screens/UserFormScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 
+// Screens Etapa 3
+import ChamadaScreen from '../screens/ChamadaScreen';
+import AvisosScreen from '../screens/AvisosScreen';
+import MeusAvisosScreen from '../screens/MeusAvisosScreen';
+import DashboardPaisScreen from '../screens/DashboardPaisScreen';
+import MeusFilhosScreen from '../screens/MeusFilhosScreen';
+
 // Types
 import { Post } from '../types/Post';
 import { User } from '../types/User';
@@ -31,7 +42,6 @@ import { User } from '../types/User';
 // Type Definitions
 // ============================================================================
 
-// Parâmetros do Stack de Posts
 export type PostsStackParamList = {
   Home: undefined;
   PostDetail: { post: Post };
@@ -39,25 +49,46 @@ export type PostsStackParamList = {
   EditPost: { post: Post };
 };
 
-// Parâmetros do Stack de Users
 export type UsersStackParamList = {
   UserList: undefined;
   UserForm: { user?: User };
 };
 
-// Parâmetros do Stack de Profile
 export type ProfileStackParamList = {
   Profile: undefined;
 };
 
-// Parâmetros das Tabs
-export type TabsParamList = {
-  PostsTab: undefined;
-  UsersTab: undefined;
-  ProfileTab: undefined;
+export type ChamadaStackParamList = {
+  Chamada: undefined;
 };
 
-// Parâmetros do Root Stack (Login + Tabs)
+export type AvisosStackParamList = {
+  Avisos: undefined;
+};
+
+export type PaiDashboardStackParamList = {
+  DashboardPais: undefined;
+};
+
+export type MeusFilhosStackParamList = {
+  MeusFilhos: undefined;
+};
+
+export type MeusAvisosStackParamList = {
+  MeusAvisos: undefined;
+};
+
+export type TabsParamList = {
+  PostsTab: undefined;
+  ChamadaTab: undefined;
+  AvisosTab: undefined;
+  UsersTab: undefined;
+  ProfileTab: undefined;
+  PaiDashboardTab: undefined;
+  MeusFilhosTab: undefined;
+  MeusAvisosTab: undefined;
+};
+
 export type RootStackParamList = {
   Login: undefined;
   MainTabs: undefined;
@@ -70,91 +101,63 @@ export type RootStackParamList = {
 const PostsStack = createNativeStackNavigator<PostsStackParamList>();
 const UsersStack = createNativeStackNavigator<UsersStackParamList>();
 const ProfileStack = createNativeStackNavigator<ProfileStackParamList>();
+const ChamadaStack = createNativeStackNavigator<ChamadaStackParamList>();
+const AvisosStack = createNativeStackNavigator<AvisosStackParamList>();
+const PaiDashboardStack = createNativeStackNavigator<PaiDashboardStackParamList>();
+const MeusFilhosStack = createNativeStackNavigator<MeusFilhosStackParamList>();
+const MeusAvisosStack = createNativeStackNavigator<MeusAvisosStackParamList>();
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabsParamList>();
+
+// ============================================================================
+// Helper: opções de header reutilizáveis
+// ============================================================================
+
+function useHeaderOptions() {
+  const theme = useTheme();
+  return {
+    headerStyle: { backgroundColor: theme.colors.surface },
+    headerTintColor: theme.colors.onSurface,
+    headerTitleStyle: { fontWeight: '600' as const },
+    animation: screenTransitions.slideRight.animation,
+    animationDuration: screenTransitions.slideRight.duration,
+  };
+}
 
 // ============================================================================
 // Stack: Posts (Home, PostDetail, CreatePost, EditPost)
 // ============================================================================
 
 function PostsStackScreen() {
-  const theme = useTheme();
+  const headerOpts = useHeaderOptions();
 
   return (
-    <PostsStack.Navigator
-      screenOptions={{
-        headerStyle: {
-          backgroundColor: theme.colors.surface,
-        },
-        headerTintColor: theme.colors.onSurface,
-        headerTitleStyle: {
-          fontWeight: '600',
-        },
-        animation: screenTransitions.slideRight.animation,
-        animationDuration: screenTransitions.slideRight.duration,
-      }}
-    >
-      <PostsStack.Screen
-        name="Home"
-        component={HomeScreen}
-        options={{ title: 'Posts' }}
-      />
-      <PostsStack.Screen
-        name="PostDetail"
-        component={PostDetailScreen}
-        options={{ title: 'Detalhes' }}
-      />
-      <PostsStack.Screen
-        name="CreatePost"
-        component={CreatePostScreen}
-        options={{ title: 'Novo Post' }}
-      />
-      <PostsStack.Screen
-        name="EditPost"
-        component={EditPostScreen}
-        options={{ title: 'Editar Post' }}
-      />
+    <PostsStack.Navigator screenOptions={headerOpts}>
+      <PostsStack.Screen name="Home" component={HomeScreen} options={{ title: 'Posts' }} />
+      <PostsStack.Screen name="PostDetail" component={PostDetailScreen} options={{ title: 'Detalhes' }} />
+      <PostsStack.Screen name="CreatePost" component={CreatePostScreen} options={{ title: 'Novo Post' }} />
+      <PostsStack.Screen name="EditPost" component={EditPostScreen} options={{ title: 'Editar Post' }} />
     </PostsStack.Navigator>
   );
 }
 
 // ============================================================================
-// Stack: Users (UserList, UserForm) - Apenas para professores
+// Stack: Users (UserList, UserForm)
 // ============================================================================
 
 function UsersStackScreen() {
-  const theme = useTheme();
+  const headerOpts = useHeaderOptions();
 
   return (
-    <UsersStack.Navigator
-      screenOptions={{
-        headerStyle: {
-          backgroundColor: theme.colors.surface,
-        },
-        headerTintColor: theme.colors.onSurface,
-        headerTitleStyle: {
-          fontWeight: '600',
-        },
-        animation: screenTransitions.slideRight.animation,
-        animationDuration: screenTransitions.slideRight.duration,
-      }}
-    >
-      <UsersStack.Screen
-        name="UserList"
-        component={UserListScreen}
-        options={{ title: 'Usuários' }}
-      />
-      <UsersStack.Screen
-        name="UserForm"
-        component={UserFormScreen}
-        options={{ title: 'Formulário de Usuário' }}
-      />
+    <UsersStack.Navigator screenOptions={headerOpts}>
+      <UsersStack.Screen name="UserList" component={UserListScreen} options={{ title: 'Usuários' }} />
+      <UsersStack.Screen name="UserForm" component={UserFormScreen} options={{ title: 'Formulário de Usuário' }} />
     </UsersStack.Navigator>
   );
 }
 
 // ============================================================================
-// Stack: Profile (Profile) - Logout e configurações
+// Stack: Profile
 // ============================================================================
 
 function ProfileStackScreen() {
@@ -163,41 +166,118 @@ function ProfileStackScreen() {
   return (
     <ProfileStack.Navigator
       screenOptions={{
-        headerStyle: {
-          backgroundColor: theme.colors.surface,
-        },
+        headerStyle: { backgroundColor: theme.colors.surface },
         headerTintColor: theme.colors.onSurface,
-        headerTitleStyle: {
-          fontWeight: '600',
-        },
+        headerTitleStyle: { fontWeight: '600' },
         animation: screenTransitions.fade.animation,
         animationDuration: screenTransitions.fade.duration,
       }}
     >
-      <ProfileStack.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{ title: 'Perfil' }}
-      />
+      <ProfileStack.Screen name="Profile" component={ProfileScreen} options={{ title: 'Perfil' }} />
     </ProfileStack.Navigator>
   );
 }
 
 // ============================================================================
-// Bottom Tabs Navigator
+// Stack: Chamada — Etapa 3 (Professor)
+// ============================================================================
+
+function ChamadaStackScreen() {
+  const headerOpts = useHeaderOptions();
+
+  return (
+    <ChamadaStack.Navigator screenOptions={headerOpts}>
+      <ChamadaStack.Screen name="Chamada" component={ChamadaScreen} options={{ title: 'Chamada' }} />
+    </ChamadaStack.Navigator>
+  );
+}
+
+// ============================================================================
+// Stack: Avisos — Etapa 3 (Professor/Admin)
+// ============================================================================
+
+function AvisosStackScreen() {
+  const headerOpts = useHeaderOptions();
+
+  return (
+    <AvisosStack.Navigator screenOptions={headerOpts}>
+      <AvisosStack.Screen name="Avisos" component={AvisosScreen} options={{ title: 'Avisos' }} />
+    </AvisosStack.Navigator>
+  );
+}
+
+// ============================================================================
+// Stack: Dashboard Pais — Etapa 3 (PAI)
+// ============================================================================
+
+function PaiDashboardStackScreen() {
+  const headerOpts = useHeaderOptions();
+
+  return (
+    <PaiDashboardStack.Navigator screenOptions={headerOpts}>
+      <PaiDashboardStack.Screen
+        name="DashboardPais"
+        component={DashboardPaisScreen}
+        options={{ title: 'Início' }}
+      />
+    </PaiDashboardStack.Navigator>
+  );
+}
+
+// ============================================================================
+// Stack: Meus Filhos — Etapa 3 (PAI)
+// ============================================================================
+
+function MeusFilhosStackScreen() {
+  const headerOpts = useHeaderOptions();
+
+  return (
+    <MeusFilhosStack.Navigator screenOptions={headerOpts}>
+      <MeusFilhosStack.Screen
+        name="MeusFilhos"
+        component={MeusFilhosScreen}
+        options={{ title: 'Meus Filhos' }}
+      />
+    </MeusFilhosStack.Navigator>
+  );
+}
+
+// ============================================================================
+// Stack: Meus Avisos — Etapa 3 (PAI)
+// ============================================================================
+
+function MeusAvisosStackScreen() {
+  const headerOpts = useHeaderOptions();
+
+  return (
+    <MeusAvisosStack.Navigator screenOptions={headerOpts}>
+      <MeusAvisosStack.Screen
+        name="MeusAvisos"
+        component={MeusAvisosScreen}
+        options={{ title: 'Meus Avisos' }}
+      />
+    </MeusAvisosStack.Navigator>
+  );
+}
+
+// ============================================================================
+// Bottom Tabs Navigator — tabs condicionais por role
 // ============================================================================
 
 function MainTabsNavigator() {
   const theme = useTheme();
   const { user } = useAuth();
 
-  // Verificar se usuário é professor
-  const isProfessor = user?.role === 'PROFESSOR';
+  const role = user?.role;
+  const isProfessor = role === 'PROFESSOR';
+  const isAdmin = role === 'ADMIN';
+  const isPai = role === 'PAI';
+  const isProfessorOrAdmin = isProfessor || isAdmin;
 
   return (
     <Tab.Navigator
       screenOptions={{
-        headerShown: false, // Headers já estão nos stacks internos
+        headerShown: false,
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.onSurfaceVariant,
         tabBarStyle: {
@@ -210,7 +290,7 @@ function MainTabsNavigator() {
           paddingTop: 5,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: '600',
           marginTop: 0,
           marginBottom: 4,
@@ -221,20 +301,62 @@ function MainTabsNavigator() {
         },
       }}
     >
-      {/* Tab: Posts */}
-      <Tab.Screen
-        name="PostsTab"
-        component={PostsStackScreen}
-        options={{
-          tabBarLabel: 'Posts',
-          tabBarIcon: ({ color, size }) => (
-            <Icon name="home" size={size} color={color} />
-          ),
-        }}
-      />
+      {/* ─── PAI: Dashboard ─── */}
+      {isPai ? (
+        <Tab.Screen
+          name="PaiDashboardTab"
+          component={PaiDashboardStackScreen}
+          options={{
+            tabBarLabel: 'Início',
+            tabBarIcon: ({ color, size }) => (
+              <Icon name="view-dashboard-outline" size={size} color={color} />
+            ),
+          }}
+        />
+      ) : (
+        /* ─── Outros roles: Posts ─── */
+        <Tab.Screen
+          name="PostsTab"
+          component={PostsStackScreen}
+          options={{
+            tabBarLabel: 'Posts',
+            tabBarIcon: ({ color, size }) => (
+              <Icon name="home" size={size} color={color} />
+            ),
+          }}
+        />
+      )}
 
-      {/* Tab: Users (apenas para professor) */}
+      {/* ─── PROFESSOR: Chamada ─── */}
       {isProfessor && (
+        <Tab.Screen
+          name="ChamadaTab"
+          component={ChamadaStackScreen}
+          options={{
+            tabBarLabel: 'Chamada',
+            tabBarIcon: ({ color, size }) => (
+              <Icon name="clipboard-check-outline" size={size} color={color} />
+            ),
+          }}
+        />
+      )}
+
+      {/* ─── PROFESSOR/ADMIN: Avisos ─── */}
+      {isProfessorOrAdmin && (
+        <Tab.Screen
+          name="AvisosTab"
+          component={AvisosStackScreen}
+          options={{
+            tabBarLabel: 'Avisos',
+            tabBarIcon: ({ color, size }) => (
+              <Icon name="bell-outline" size={size} color={color} />
+            ),
+          }}
+        />
+      )}
+
+      {/* ─── PROFESSOR/ADMIN: Usuários ─── */}
+      {isProfessorOrAdmin && (
         <Tab.Screen
           name="UsersTab"
           component={UsersStackScreen}
@@ -247,7 +369,35 @@ function MainTabsNavigator() {
         />
       )}
 
-      {/* Tab: Profile */}
+      {/* ─── PAI: Meus Filhos ─── */}
+      {isPai && (
+        <Tab.Screen
+          name="MeusFilhosTab"
+          component={MeusFilhosStackScreen}
+          options={{
+            tabBarLabel: 'Filhos',
+            tabBarIcon: ({ color, size }) => (
+              <Icon name="account-child-outline" size={size} color={color} />
+            ),
+          }}
+        />
+      )}
+
+      {/* ─── PAI: Meus Avisos ─── */}
+      {isPai && (
+        <Tab.Screen
+          name="MeusAvisosTab"
+          component={MeusAvisosStackScreen}
+          options={{
+            tabBarLabel: 'Avisos',
+            tabBarIcon: ({ color, size }) => (
+              <Icon name="email-outline" size={size} color={color} />
+            ),
+          }}
+        />
+      )}
+
+      {/* ─── Todos os roles: Perfil ─── */}
       <Tab.Screen
         name="ProfileTab"
         component={ProfileStackScreen}
@@ -269,7 +419,6 @@ function MainTabsNavigator() {
 export default function AppNavigator() {
   const { user, loading } = useAuth();
 
-  // Mostrar nada enquanto carrega (evita flash de tela errada)
   if (loading) {
     return null;
   }
